@@ -36,6 +36,24 @@ Este es el repositorio de la práctica 2 de IPM, curso 2021/22.
   * Login UDC:
   * Login Github:
 
+  * Grupo: IPM.21
+  * Horario: 8:30
+  
+  * Nombre: Nicolás
+  * Apellidos: Vázquez Cancela 
+  * Login UDC: nicolas.vazquez.cancela 
+  * Login Github: NicoVazCan
+  
+  * Nombre: Samuel 
+  * Apellidos: Torres González 
+  * Login UDC: samuel.torres 
+  * Login Github: stglez-udc 
+
+  * Nombre: Eduardo
+  * Apellidos Juaristi Pérez
+  * Login UDC: e.juaristi 
+  * Login Github: ejuaristi
+
 
 ## Enunciado
 
