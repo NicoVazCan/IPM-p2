@@ -18,27 +18,6 @@ Este es el repositorio de la práctica 2 de IPM, curso 2021/22.
   > momento de darte de alta en _github classroom_.
   
   
-  * Grupo: p.e. IPM.11
-  * Horario: p.e. 12:30
-  
-  * Nombre:
-  * Apellidos:
-  * Login UDC: _cuenta corporativa de la udc (sin `@udc.es`, no es la dirección de email)_
-  * Login Github: _cuenta en github que se usa para las prácticas de la asignatura_
-  
-  * Nombre:
-  * Apellidos:
-  * Login UDC:
-  * Login Github:
-
-  * Nombre:
-  * Apellidos:
-  * Login UDC:
-  * Login Github:
-
-  * Grupo: IPM.21
-  * Horario: 8:30
-  
   * Nombre: Nicolás
   * Apellidos: Vázquez Cancela 
   * Login UDC: nicolas.vazquez.cancela 
