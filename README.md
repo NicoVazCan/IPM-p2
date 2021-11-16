@@ -18,6 +18,9 @@ Este es el repositorio de la práctica 2 de IPM, curso 2021/22.
   > momento de darte de alta en _github classroom_.
   
   
+  * Grupo: IPM.21
+  * Horario: 8:30
+  
   * Nombre: Nicolás
   * Apellidos: Vázquez Cancela 
   * Login UDC: nicolas.vazquez.cancela 
