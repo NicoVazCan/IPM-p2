@@ -1,6 +1,6 @@
 # src
 
-Segunda práctica de IPM
+A new Flutter project.
 
 ## Getting Started
 
