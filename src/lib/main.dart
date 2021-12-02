@@ -1,6 +1,9 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'dart:async';
+import 'package:flutter_barcode_scanner/flutter_barcode_scanner.dart';
 
 /*
 var url = Uri.parse("http://10.0.2.2:8080/api/rest/facility_access_log/111/daterange%22);
@@ -176,7 +179,6 @@ class _FacilitiesPageState extends State<FacilitiesPage> {
   }
 }
 
-
 /*
 class DebugPage extends StatelessWidget {
   const DebugPage({Key? key}) : super(key: key);
@@ -219,8 +221,8 @@ class OpcionesPage extends StatelessWidget {
               // Within the SecondRoute widget
               onPressed: () {
                 Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => OpcionesPage(facility: facility)),
+                 context,
+                  MaterialPageRoute(builder: (context) => IdentificarPage(facility: facility)),
                 );
               },
               child: const Text('Registrar',
@@ -231,8 +233,8 @@ class OpcionesPage extends StatelessWidget {
               // Within the SecondRoute widget
               onPressed: () {
                 Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => EventPage(facility: facility)),
+                  context,
+                  MaterialPageRoute(builder: (context) => EventPage(facility: facility)),
                 );
               },
               child: const Text('Eventos',
@@ -281,6 +283,52 @@ class DateTimePicker{
 
   String timeToString() =>
       current.toString().substring(11, 16);
+}
+
+class IdentificarPage extends StatelessWidget {
+  Map facility;
+
+  IdentificarPage({Key? key, required this.facility}): super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('Identificar usuario')),
+      body: Builder(builder: (BuildContext context) {
+        return Container(
+          alignment: Alignment.center,
+          child: Flex(
+            direction: Axis.vertical,
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: <Widget>[
+              ElevatedButton(
+                onPressed: () => FlutterBarcodeScanner.scanBarcode(
+                  '#ff6666', 'Cancel', true, ScanMode.QR).then(
+                        (value) {
+                    if(value != '-1') {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (context) =>
+                            RegistrarPage(value)
+                        ),
+                      );
+                    }
+                  }
+                ),
+                child: Text('Con QR')
+              ),
+              /*ElevatedButton(
+          onPressed: () => startBarcodeScanStream(),
+          child: Text('Manual')),
+      Text('Scan result : $_scanBarcode\n',
+          style: TextStyle(fontSize: 20))*/
+            ]
+          )
+        );
+      }
+      )
+    );
+  }
 }
 
 class EventPage extends StatefulWidget {
@@ -506,6 +554,21 @@ class _EventPageState extends State<EventPage> {
               ),
             /*]
         )*/
+    );
+  }
+}
+
+class RegistrarPage extends StatelessWidget {
+  final String qr;
+  const RegistrarPage(this.qr, {Key? key}) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+        appBar: AppBar(
+          title: Text('Registrar'),
+        ),
+        body: Text(qr)
     );
   }
 }
