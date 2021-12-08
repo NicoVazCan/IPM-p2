@@ -161,7 +161,7 @@ Future<Map> postAccLog(int facility_id, String user_id,
       '"user_id": "$user_id",'
       '"timestamp": "${timestamp.toIso8601String()}",'
       '"type": "$type",'
-      '"temperature": "$temperature"'
+      '"temperature": "${temperature.toString()}"'
   '}';
   var client = http.Client();
   var streamedResponse = await client.send(request);
@@ -171,6 +171,12 @@ Future<Map> postAccLog(int facility_id, String user_id,
   var dataAsMap = json.decode(dataAsString) as Map;
   return dataAsMap["insert_access_log_one"];
 }
+
+String dateToString(DateTime fecha) =>
+    fecha.toIso8601String().substring(0, 10);
+
+String timeToString(DateTime fecha) =>
+    fecha.toString().substring(11, 16);
 
 class Alert extends StatelessWidget {
   final String _text;
@@ -470,7 +476,8 @@ class _UsuariosPageState extends State<UsuariosPage> {
                             Map user = users[index];
 
                             return ListTile(
-                              title: Text("${user["name"]} ${user["surname"]}"),
+                              title: Text("${user["name"]} ${user["surname"]}\n"
+                                  "nº: ${user["phone"]}"),
                               onTap: () {
                                 Navigator.push(
                                     context,
@@ -515,12 +522,6 @@ class _EventPageState extends State<EventPage> {
   late Future<DateTime?> _futFechaHasta;
   late Future<TimeOfDay?> _futTimeDesde;
   late Future<TimeOfDay?> _futTimeHasta;
-
-  String dateToString(DateTime fecha) =>
-      fecha.toIso8601String().substring(0, 10);
-
-  String timeToString(DateTime fecha) =>
-      fecha.toString().substring(11, 16);
 
   @override
   initState() {
@@ -830,7 +831,7 @@ class _EventPageState extends State<EventPage> {
                                             DataCell(
                                                 Text(acceso['timestamp']
                                                     .toString().substring(
-                                                    0, 11))),
+                                                    0, 10))),
                                             DataCell(
                                                 Text(acceso['timestamp']
                                                     .toString().substring(
@@ -858,19 +859,234 @@ class _EventPageState extends State<EventPage> {
   }
 }
 
-class RegistrarPage extends StatelessWidget {
+class RegistrarPage extends StatefulWidget {
   final String uuid;
   final Map facility;
-  
-  const RegistrarPage({required this.uuid, required this.facility, Key? key}) : super(key: key);
+
+  const RegistrarPage({required this.uuid, required this.facility, Key? key})
+      : super(key: key);
+
+  @override
+  _RegistrarPageState createState() => _RegistrarPageState();
+
+}
+
+class _RegistrarPageState extends State<RegistrarPage> {
+  late Future<DateTime?> _futFecha;
+  late Future<TimeOfDay?> _futTime;
+  late Future<Map> _futAcc;
+  late double temperatura;
+  late DateTime fecha;
+  late bool entra;
+
+  @override
+  void initState() {
+    // TODO: implement initState
+    super.initState();
+    temperatura = 30.0;
+    fecha = DateTime.now();
+    entra = true;
+
+    _futFecha = Future(() => fecha);
+    _futTime = Future(() =>
+        TimeOfDay(hour: fecha.hour, minute: fecha.minute));
+    _futAcc = Future(() => {});
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-        appBar: AppBar(
-          title: Text('Registrar'),
+      resizeToAvoidBottomInset: false,
+      appBar: AppBar(
+          title: Text('Registrar acceso'),
         ),
-        body: Text(uuid)
+        body: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+          Text("Introduzca los datos del acceso a ${widget.facility['name']}",
+              textScaleFactor: 1.5,
+          ),
+          TextFormField(
+            decoration: const InputDecoration(
+                hintText: "30.0",
+                labelText: "Introduzca la temperatura del usuario"),
+            keyboardType: TextInputType.number,
+            autovalidateMode: AutovalidateMode.onUserInteraction,
+            validator: (value) {
+                if(value == null || double.tryParse(value) == null){
+                  return "Formato incorrecto";
+                }
+              },
+            onFieldSubmitted: (value) {
+              value = value.trim();
+              if (!value.isEmpty) {
+                setState(() {
+                  temperatura = double.parse(value);
+                });
+              }
+            },
+          ),
+          const Text("Introduzca la fecha del acceso",
+          ),
+          Row(
+              children: <Widget>[
+                FutureBuilder<DateTime?>(
+                    future: _futFecha,
+                    builder: (BuildContext context, AsyncSnapshot<DateTime?> snapshot) {
+                      DateTime? newFecha = snapshot.data;
+                      if (newFecha != null) {
+                        fecha = newFecha;
+                      }
+
+                      return Container(
+                          decoration: ShapeDecoration(
+                            color: Colors.white,
+                            shape: Border.all(
+                              color: Colors.black,
+                              width: 1.0,
+                            ),
+                          ),
+                          child: Text(dateToString(fecha),
+                              textScaleFactor: 1.5
+                          )
+                      );
+                    }
+                ),
+                IconButton(
+                    icon: const Icon(Icons.calendar_today),
+                    iconSize: 20,
+                    tooltip: 'Austar la fecha del acceso',
+                    onPressed: () => setState(() {
+                      _futFecha = showDatePicker(
+                          context: context,
+                          initialDate: fecha,
+                          firstDate: DateTime(2021),
+                          lastDate: DateTime(2076)
+                      );
+                    }
+                    )
+                ),
+                FutureBuilder<TimeOfDay?>(
+                    future: _futTime,
+                    builder: (BuildContext context, AsyncSnapshot<TimeOfDay?> snapshot) {
+                      TimeOfDay? newTime = snapshot.data;
+
+                      if(newTime != null) {
+                        fecha = DateTime(
+                            fecha.year,
+                            fecha.month,
+                            fecha.day,
+                            newTime.hour,
+                            newTime.minute
+                        );
+                      }
+
+                      return Container(
+                        decoration: ShapeDecoration(
+                          color: Colors.white,
+                          shape: Border.all(
+                            color: Colors.black,
+                            width: 1.0,
+                          ),
+                        ),
+                        child: Text(timeToString(fecha),
+                            textScaleFactor: 1.5
+                        ),
+                      );
+                    }
+                ),
+                IconButton(
+                    icon: const Icon(Icons.access_time),
+                    iconSize: 20,
+                    tooltip: 'Austar la hora del acceso',
+                    onPressed: () => setState((){
+                      _futTime = showTimePicker(
+                          context: context,
+                          initialTime: TimeOfDay(
+                              hour: fecha.hour,
+                              minute: fecha.minute
+                          )
+                      );
+                    },
+                    )
+                )
+              ]
+          ),
+          const Text("Indique si ha entrado o salido",
+          ),
+          Row(children: <Widget>[
+            Switch(
+                value: entra,
+                onChanged: (value) => setState(() => entra = value)
+            ),
+            Text(entra? "Entró": "Salió",
+              textScaleFactor: 1.5,
+            )
+          ],
+          ),
+          Center(
+            child: IconButton(
+                alignment: Alignment.topRight,
+                icon: const Icon(Icons.check_circle_outline),
+                iconSize: 50,
+                tooltip: 'Austar la fecha de inicio del evento',
+                onPressed: () => setState(() {
+                  _futAcc = postAccLog(
+                      widget.facility['id'],
+                      widget.uuid,
+                      fecha,
+                      entra? 'IN': 'OUT',
+                      temperatura);
+                })
+            ),
+          ),
+          Center(child: FutureBuilder<Map>(
+              future: _futAcc,
+              builder: (BuildContext context, AsyncSnapshot<Map> snapshot) {
+                switch (snapshot.connectionState) {
+                  case ConnectionState.waiting:
+                    return CircularProgressIndicator();
+                  case ConnectionState.done:
+                    if (snapshot.hasError) {
+                      return Alert("Fallo al conectar con la base de datos");
+                    } else {
+                      Map acceso = snapshot.data as Map;
+
+                      if (acceso.isEmpty) {
+                        return const Text("No se ha registrado nada");
+                      } else {
+                        return Container(
+                            decoration: ShapeDecoration(
+                              color: Colors.white,
+                              shape: Border.all(
+                                color: Colors.black,
+                                width: 1.0,
+                              ),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  "\n Se ha registrado correctamente la\n"
+                                  " siguiente información del usuario: \n\n"
+                                  " Fecha: ${acceso["timestamp"].substring(0, 10)}\n"
+                                  " Hora: ${acceso["timestamp"].substring(11, 16)}\n"
+                                  " Tipo: ${acceso["type"]}\n",
+                                  textScaleFactor: 1.5,
+                                )
+                              ]
+                            )
+                        );
+                      }
+                    }
+                  default:
+                    return Alert("Error: ${snapshot.connectionState}");
+                }
+              },
+            ),
+          )
+        ]
+        ),
     );
   }
 }
