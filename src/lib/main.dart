@@ -26,159 +26,6 @@ hay que cambiar en la url de la petición localhost:8080 por 10.0.2.2:8080
 
 //{"id":130,"max_capacity":60,"name":"Centro comercial Patricia Cano","address":"1238 Calle de Arturo Soria","percentage_capacity_allowed":40}
 
-Future<List> getFacilities() async{
-  var url = Uri.parse("http://10.0.2.2:8080/api/rest/facilities");
-  var request = http.Request("GET", url);
-  request.headers.addAll({"x-hasura-admin-secret": "myadminsecretkey"});
-  var client = http.Client();
-  var streamedResponse = await client.send(request);
-  var dataAsString = await streamedResponse.stream.bytesToString();
-  client.close();
-  await Future.delayed(Duration(seconds: 3));
-  var dataAsMap = json.decode(dataAsString) as Map;
-  return dataAsMap["facilities"];
-}
-
-Future<List> getEvent(Map facility ,DateTime desde, DateTime hasta) async{
-  var url = Uri.parse("http://10.0.2.2:8080/api/rest/facility_access_log/${facility['id'].toString()}/daterange");
-  var request = http.Request("GET", url);
-  request.headers.addAll({"x-hasura-admin-secret": "myadminsecretkey"});
-  //'{"startdate": "2021-01-01T02:03:00+00:000", "enddate": "2021-12-01T02:03:00+00:000"}'
-  request.body = '{"startdate": "2021-01-01T02:03:00+00:000", "enddate": "2021-12-01T02:03:00+00:000"}';
-  //'{ "startdate": ${desde.toIso8601String()}+00:000, "enddate": ${hasta.toIso8601String()}+00:000}';
-  var client = http.Client();
-  var streamedResponse = await client.send(request);
-  var dataAsString = await streamedResponse.stream.bytesToString();
-  print(request.body);
-  print(dataAsString);
-  client.close();
-  await Future.delayed(Duration(seconds: 3));
-  var dataAsMap = json.decode(dataAsString) as Map;
-  return dataAsMap["access_log"];
-}
-
-class Alert extends StatefulWidget {
-  String text;
-  
-  Alert(this.text);
-  
-  @override
-  AlertState createState() => AlertState();
-
-}
-
-class AlertState extends State<Alert> {
-  @override
-  Widget build(BuildContext context) {
-    return AlertDialog(
-      title: new Text(widget.text),
-      actions: <Widget>[
-        ElevatedButton(
-          child: new Text("OK"),
-          onPressed: () {
-            Navigator.of(context).pop();
-          },
-        ),
-      ],
-    );
-  }
-}
-
-void main() {
-  runApp(const MyApp());
-}
-
-class MyApp extends StatelessWidget {
-  const MyApp({Key? key}) : super(key: key);
-
-  // This widget is the root of your application.
-  @override
-  Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Flutter Demo',
-      theme: ThemeData(primarySwatch: Colors.blue,),
-      home: FacilitiesPage(),
-      debugShowCheckedModeBanner: false,
-    );
-  }
-}
-
-
-class FacilitiesPage extends StatefulWidget {
-  const FacilitiesPage({Key? key}) : super(key: key);
-
-  @override
-  _FacilitiesPageState createState() => _FacilitiesPageState();
-}
-
-
-class _FacilitiesPageState extends State<FacilitiesPage> {
-  late Future<List> _value;
-
-  @override
-  initState() {
-    super.initState();
-    _value = getFacilities();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text("Selecione un centro"),
-      ),
-      body: SizedBox(
-        width: double.infinity,
-        child: Center(
-            child: FutureBuilder<List>(
-            future: _value,
-            builder: (BuildContext context, AsyncSnapshot<List> snapshot) {
-              switch (snapshot.connectionState) {
-                case ConnectionState.waiting:
-                  return CircularProgressIndicator();
-                case ConnectionState.done:
-                  if (snapshot.hasError) {
-                    return Alert("Fallo al conectar con la base de datos");
-                  } else if (snapshot.hasData) {
-                    List facilities = snapshot.data as List;
-
-                    if (facilities.isEmpty) {
-                      return const Text("En este momento no se encuntra"
-                          "ningún centro disponible, pruebe más tarde.");
-                    }
-
-                    return ListView.builder(
-                      itemCount: facilities.length,
-                      itemBuilder: (context, index) {
-                        Map facility = facilities[index];
-
-                        return ListTile(
-                          title: Text(facility["name"]),
-                          onTap: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                  builder: (context) =>
-                                      OpcionesPage(facility: facility)),
-                            );
-                          },
-                        );
-                      },
-                    );
-                  } else {
-                    return const Text('Empty data');
-                  }
-                default:
-                  return Text('State: ${snapshot.connectionState}');
-              }
-            },
-          ),
-        ),
-      ),
-    );
-  }
-}
-
 /*
 class DebugPage extends StatelessWidget {
   const DebugPage({Key? key}) : super(key: key);
@@ -201,6 +48,257 @@ class DebugPage extends StatelessWidget {
     );
   }
 }*/
+
+// MODELO
+
+Future<List> getFacilities() async{
+  const ipMovil = "10.0.2.2";
+  var url = Uri.parse("http://$ipMovil:8080/api/rest/facilities");
+  var request = http.Request("GET", url);
+  request.headers.addAll({"x-hasura-admin-secret": "myadminsecretkey"});
+  var client = http.Client();
+  var streamedResponse = await client.send(request);
+  var dataAsString = await streamedResponse.stream.bytesToString();
+  client.close();
+  await Future.delayed(Duration(seconds: 2));
+  var dataAsMap = json.decode(dataAsString) as Map;
+  return dataAsMap["facilities"];
+}
+
+Future<List> getEvent(int facility_id ,DateTime desde, DateTime hasta) async{
+  const ipMovil = "10.0.2.2";
+  var url = Uri.parse("http://$ipMovil:8080/api/rest/facility_access_log/$facility_id/daterange");
+  var request = http.Request("GET", url);
+  request.headers.addAll({"x-hasura-admin-secret": "myadminsecretkey"});
+  request.body = '{ "startdate": "${desde.toIso8601String()}+00:000", "enddate": "${hasta.toIso8601String()}+00:000"}';
+  var client = http.Client();
+  var streamedResponse = await client.send(request);
+  var dataAsString = await streamedResponse.stream.bytesToString();
+  client.close();
+  await Future.delayed(Duration(seconds: 2));
+  var dataAsMap = json.decode(dataAsString) as Map;
+  return dataAsMap["access_log"];
+}
+
+Future<List> getUsers(String name, String surname) async {
+  const ipMovil = "10.0.2.2";
+  name = name.trim();
+  surname = surname.trim();
+
+  if (!name.isEmpty && !surname.isEmpty) {
+    var url = Uri.parse(
+        "http://$ipMovil:8080/api/rest/user?name=$name&surname=$surname");
+    var request = http.Request("GET", url);
+    request.headers.addAll({"x-hasura-admin-secret": "myadminsecretkey"});
+    var client = http.Client();
+    var streamedResponse = await client.send(request);
+    var dataAsString = await streamedResponse.stream.bytesToString();
+    client.close();
+    var dataAsMap = json.decode(dataAsString) as Map;
+    List users = dataAsMap["users"];
+
+    if (!users.isEmpty) {
+      return users;
+    }
+  }
+
+  var url = Uri.parse("http://$ipMovil:8080/api/rest/users");
+  var request = http.Request("GET", url);
+  request.headers.addAll({"x-hasura-admin-secret": "myadminsecretkey"});
+  var client = http.Client();
+  var streamedResponse = await client.send(request);
+  var dataAsString = await streamedResponse.stream.bytesToString();
+  client.close();
+  var dataAsMap = json.decode(dataAsString) as Map;
+  List users = dataAsMap["users"];
+
+  int i = 0;
+  Map user = users[i];
+
+  if (!name.isEmpty) {
+    while (i < users.length) {
+      user = users[i];
+      print(user["name"]);
+      if ((user["name"] as String).toUpperCase()
+          .startsWith(name.toUpperCase())) {
+        i++;
+      } else {
+        users.removeAt(i);
+        if (i != 0) {
+          i--;
+        }
+      }
+    }
+  }
+  i = 0;
+  if (!surname.isEmpty) {
+    while (i < users.length) {
+      user = users[i];
+      if ((user["surname"] as String).toUpperCase()
+          .startsWith(surname.toUpperCase())) {
+        i++;
+      } else {
+        users.removeAt(i);
+        if (i != 0) {
+          i--;
+        }
+      }
+    }
+  }
+
+  return users;
+}
+
+Future<Map> postAccLog(int facility_id, String user_id,
+    DateTime timestamp, String type, double temperature) async {
+  const ipMovil = "10.0.2.2";
+  var url = Uri.parse("http://$ipMovil:8080/api/rest/access_log");
+  var request = http.Request("POST", url);
+  request.headers.addAll({"x-hasura-admin-secret": "myadminsecretkey"});
+  request.body =
+  '{'
+      '"facility_id": $facility_id,'
+      '"user_id": "$user_id",'
+      '"timestamp": "${timestamp.toIso8601String()}",'
+      '"type": "$type",'
+      '"temperature": "$temperature"'
+  '}';
+  var client = http.Client();
+  var streamedResponse = await client.send(request);
+  var dataAsString = await streamedResponse.stream.bytesToString();
+  client.close();
+  await Future.delayed(Duration(seconds: 2));
+  var dataAsMap = json.decode(dataAsString) as Map;
+  return dataAsMap["insert_access_log_one"];
+}
+
+class Alert extends StatelessWidget {
+  final String _text;
+
+  Alert(this._text);
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: Text(_text),
+      actions: <Widget>[
+        ElevatedButton(
+          child: Text("OK"),
+          onPressed: () {
+            Navigator.of(context).pop();
+          },
+        ),
+      ],
+    );
+  }
+}
+
+class MyApp extends StatelessWidget {
+  const MyApp({Key? key}) : super(key: key);
+
+  // This widget is the root of your application.
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      title: 'Flutter Demo',
+      theme: ThemeData(primarySwatch: Colors.blue,),
+      home: FacilitiesPage(),
+      debugShowCheckedModeBanner: false,
+    );
+  }
+}
+
+
+// VISTA
+
+class FacilitiesPage extends StatefulWidget {
+  const FacilitiesPage({Key? key}) : super(key: key);
+
+  @override
+  _FacilitiesPageState createState() => _FacilitiesPageState();
+}
+
+class _FacilitiesPageState extends State<FacilitiesPage> {
+  late Future<List> _value;
+
+  @override
+  initState() {
+    super.initState();
+    _value = getFacilities();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+        appBar: AppBar(
+          title: const Text("Centros"),
+        ),
+        body: Center(child: Column(
+            children: <Widget>[
+              Container(
+                  decoration: ShapeDecoration(
+                    color: Colors.white,
+                    shape: Border.all(
+                      color: Colors.black,
+                      width: 1.0,
+                    ),
+                  ),
+                  child: const Text("Seleccione el centro para"
+                      " registrar u obtener su información:",
+                      textScaleFactor: 1.5
+                  )
+              ),
+              FutureBuilder<List>(
+                future: _value,
+                builder: (BuildContext context, AsyncSnapshot<List> snapshot) {
+                  switch (snapshot.connectionState) {
+                    case ConnectionState.waiting:
+                      return CircularProgressIndicator();
+                    case ConnectionState.done:
+                      if (snapshot.hasError) {
+                        return Alert("Fallo al conectar con la base de datos");
+                      } else if (snapshot.hasData) {
+                        List facilities = snapshot.data as List;
+
+                        if (facilities.isEmpty) {
+                          return const Text("En este momento no se encuntra"
+                              " ningún centro disponible, pruebe más tarde.",
+                              textScaleFactor: 1.5
+                          );
+                        }
+
+                        return Expanded(child: ListView.builder(
+                            itemCount: facilities.length,
+                            itemBuilder: (context, index) {
+                              Map facility = facilities[index];
+
+                              return ListTile(
+                                title: Text(facility["name"]),
+                                onTap: () {
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                        builder: (context) =>
+                                            OpcionesPage(facility: facility)),
+                                  );
+                                },
+                              );
+                            },
+                          )
+                          );
+                      }
+                      return Alert("Error: ${snapshot.connectionState}");
+                    default:
+                      return Alert("Error: ${snapshot.connectionState}");
+                  }
+                },
+              ),
+            ]
+        )
+        )
+    );
+  }
+}
 
 class OpcionesPage extends StatelessWidget {
   Map facility;
@@ -248,43 +346,6 @@ class OpcionesPage extends StatelessWidget {
   }
 }
 
-class DateTimePicker{
-  late DateTime current;
-
-  DateTimePicker(this.current);
-
-  Future<void> selectDate(BuildContext context) async {
-    final DateTime? pickedDate = await showDatePicker(
-        context: context,
-        initialDate: current,
-        firstDate: DateTime(2021),
-        lastDate: DateTime(2076)
-    );
-    if (pickedDate != null && pickedDate != current) {
-        current = pickedDate;
-    }
-  }
-
-  String dateToString() =>
-      current.toIso8601String().substring(0, 10);
-
-  Future<void> selectTime(BuildContext context) async {
-    TimeOfDay time = TimeOfDay(hour: current.hour, minute: current.minute);
-
-    final TimeOfDay? pickedTime = await showTimePicker(
-        context: context,
-        initialTime: time
-    );
-    if (pickedTime != null && pickedTime != time) {
-        current = DateTime(current.year, current.month, current.day,
-            pickedTime.hour, pickedTime.minute);
-    }
-  }
-
-  String timeToString() =>
-      current.toString().substring(11, 16);
-}
-
 class IdentificarPage extends StatelessWidget {
   Map facility;
 
@@ -309,24 +370,130 @@ class IdentificarPage extends StatelessWidget {
                       Navigator.push(
                         context,
                         MaterialPageRoute(builder: (context) =>
-                            RegistrarPage(value)
+                            RegistrarPage(uuid: value, facility: facility,)
                         ),
                       );
                     }
                   }
                 ),
-                child: Text('Con QR')
+                child: const Text('Con QR',
+                    textScaleFactor: 1.5
+                )
               ),
-              /*ElevatedButton(
-          onPressed: () => startBarcodeScanStream(),
-          child: Text('Manual')),
-      Text('Scan result : $_scanBarcode\n',
-          style: TextStyle(fontSize: 20))*/
+              ElevatedButton(
+                onPressed: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) =>
+                    UsuariosPage(facility: facility))
+                ),
+                child: const Text('Manual',
+                    textScaleFactor: 1.5
+                )
+              ),
             ]
           )
         );
       }
       )
+    );
+  }
+}
+
+class UsuariosPage extends StatefulWidget {
+  Map facility;
+
+  UsuariosPage({Key? key, required this.facility}): super(key: key);
+
+  @override
+  _UsuariosPageState createState() => _UsuariosPageState();
+}
+
+class _UsuariosPageState extends State<UsuariosPage> {
+  late Future<List> _value;
+  String _nombre = '',
+      _apellido = '';
+
+  @override
+  initState() {
+    super.initState();
+    _value = getUsers(_nombre, _apellido);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+        appBar: AppBar(
+          title: const Text("Usuarios"),
+        ),
+        body: Center(child: Column(
+            children: <Widget>[
+              TextFormField(
+                decoration: const InputDecoration(
+                    hintText: "nombre apellido",
+                    labelText: "Introduzca el nombre y apellido del usuario"),
+                onFieldSubmitted: (value) {
+                  value = value.trim();
+                  if (!value.isEmpty) {
+                    List<String> values = value.split(' ');
+
+                    setState(() {
+                      _nombre = values[0];
+                      if (values.length > 1) {
+                        _apellido = values[1];
+                      }
+                        _value = getUsers(_nombre, _apellido);
+                    });
+                  }
+                },
+              ),
+              FutureBuilder<List>(
+                future: _value,
+                builder: (BuildContext context, AsyncSnapshot<List> snapshot) {
+                  switch (snapshot.connectionState) {
+                    case ConnectionState.waiting:
+                      return CircularProgressIndicator();
+                    case ConnectionState.done:
+                      if (snapshot.hasError) {
+                        return Alert("Fallo al conectar con la base de datos");
+                      } else {
+                        List users = snapshot.data as List;
+
+                        if (users.isEmpty) {
+                          return const Text("No se encontraron coincidencias",
+                              textScaleFactor: 1.5
+                          );
+                        }
+
+                        return Expanded(child: ListView.builder(
+                          itemCount: users.length,
+                          itemBuilder: (context, index) {
+                            Map user = users[index];
+
+                            return ListTile(
+                              title: Text("${user["name"]} ${user["surname"]}"),
+                              onTap: () {
+                                Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (context) =>
+                                          RegistrarPage(uuid: user["uuid"],
+                                              facility: widget.facility),
+                                    )
+                                );
+                              },
+                            );
+                          },
+                        )
+                        );
+                      }
+                    default:
+                      return Alert("Error: ${snapshot.connectionState}");
+                  }
+                },
+              ),
+            ]
+        )
+        )
     );
   }
 }
@@ -341,17 +508,27 @@ class EventPage extends StatefulWidget {
 }
 
 class _EventPageState extends State<EventPage> {
-  late DateTimePicker fechaDesde;
-  late DateTimePicker fechaHasta;
-  late Future<List> _future;
+  late DateTime fechaDesde;
+  late DateTime fechaHasta;
+  late Future<List> _futAccLog;
+  late Future<DateTime?> _futFechaDesde;
+  late Future<DateTime?> _futFechaHasta;
+  late Future<TimeOfDay?> _futTimeDesde;
+  late Future<TimeOfDay?> _futTimeHasta;
+
+  String dateToString(DateTime fecha) =>
+      fecha.toIso8601String().substring(0, 10);
+
+  String timeToString(DateTime fecha) =>
+      fecha.toString().substring(11, 16);
 
   @override
   initState() {
     super.initState();
-    fechaHasta = DateTimePicker(DateTime.now());
-    int year = fechaHasta.current.year,
-        month = fechaHasta.current.month,
-        day = fechaHasta.current.day - 28;
+    fechaHasta = DateTime.now();
+    int year = fechaHasta.year,
+        month = fechaHasta.month,
+        day = fechaHasta.day - 28;
     if (day <= 0) {
       day = day % 28 + 1;
       if (month-- == 0) {
@@ -359,128 +536,233 @@ class _EventPageState extends State<EventPage> {
         month = 12;
       }
     }
-    fechaDesde = DateTimePicker(DateTime(year, month, day,
-        fechaHasta.current.hour, fechaHasta.current.minute));
+    fechaDesde = DateTime(year, month, day,
+        fechaHasta.hour, fechaHasta.minute);
 
-    _future = getEvent(widget.facility, fechaDesde.current, fechaHasta.current);
+    _futAccLog = getEvent(widget.facility['id'], fechaDesde, fechaHasta);
+
+    _futFechaDesde = Future(() => fechaDesde);
+    _futFechaHasta = Future(() => fechaHasta);
+    _futTimeDesde = Future(() =>
+        TimeOfDay(hour: fechaDesde.hour, minute: fechaDesde.minute));
+    _futTimeHasta = Future(() =>
+        TimeOfDay(hour: fechaHasta.hour, minute: fechaHasta.minute));
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-        appBar: AppBar(
-          title: const Text("Eventos"),
-        ),
-        body: /*Column(
+      appBar: AppBar(
+        title: const Text("Eventos"),
+      ),
+      body: Center(
+        child: Column(
             children: <Widget>[
-              Row(
-                  children: <Widget>[
-                    const Text(" Inicio ",
-                        textScaleFactor: 2
+              Container(
+                  decoration: ShapeDecoration(
+                    color: Colors.white,
+                    shape: Border.all(
+                      color: Colors.black,
+                      width: 1.0,
                     ),
-                    Container(
-                        decoration: ShapeDecoration(
-                          color: Colors.white,
-                          shape: Border.all(
-                            color: Colors.black,
-                            width: 1.0,
-                          ),
+                  ),
+                  child: Column(
+                      children: <Widget>[
+                        Row(
+                            children: <Widget>[
+                              const Text(" Inicio ",
+                                  textScaleFactor: 2
+                              ),
+                              FutureBuilder<DateTime?>(
+                                  future: _futFechaDesde,
+                                  builder: (BuildContext context, AsyncSnapshot<DateTime?> snapshot) {
+                                    DateTime? newFecha = snapshot.data;
+                                    if (newFecha != null) {
+                                      fechaDesde = newFecha;
+                                    }
+
+                                    return Container(
+                                        decoration: ShapeDecoration(
+                                          color: Colors.white,
+                                          shape: Border.all(
+                                            color: Colors.black,
+                                            width: 1.0,
+                                          ),
+                                        ),
+                                        child: Text(dateToString(fechaDesde),
+                                            textScaleFactor: 2
+                                        )
+                                    );
+                                  }
+                              ),
+                              IconButton(
+                                  icon: const Icon(Icons.calendar_today),
+                                  iconSize: 25,
+                                  tooltip: 'Austar la fecha de inicio del evento',
+                                  onPressed: () => setState(() {
+                                    _futFechaDesde = showDatePicker(
+                                        context: context,
+                                        initialDate: fechaDesde,
+                                        firstDate: DateTime(2021),
+                                        lastDate: DateTime(2076)
+                                    );
+                                  }
+                                  )
+                              ),
+                              FutureBuilder<TimeOfDay?>(
+                                  future: _futTimeDesde,
+                                  builder: (BuildContext context, AsyncSnapshot<TimeOfDay?> snapshot) {
+                                    TimeOfDay? newTime = snapshot.data;
+
+                                    if(newTime != null) {
+                                      //setState(() =>
+                                      fechaDesde = DateTime(
+                                          fechaDesde.year,
+                                          fechaDesde.month,
+                                          fechaDesde.day,
+                                          newTime.hour,
+                                          newTime.minute
+                                        //  )
+                                      );
+                                    }
+
+                                    return Container(
+                                      decoration: ShapeDecoration(
+                                        color: Colors.white,
+                                        shape: Border.all(
+                                          color: Colors.black,
+                                          width: 1.0,
+                                        ),
+                                      ),
+                                      child: Text(timeToString(fechaDesde),
+                                          textScaleFactor: 2
+                                      ),
+                                    );
+                                  }
+                              ),
+                              IconButton(
+                                  icon: const Icon(Icons.access_time),
+                                  iconSize: 25,
+                                  tooltip: 'Austar la hora de inicio del evento',
+                                  onPressed: () => setState((){
+                                    _futTimeDesde = showTimePicker(
+                                        context: context,
+                                        initialTime: TimeOfDay(
+                                            hour: fechaDesde.hour,
+                                            minute: fechaDesde.minute
+                                        )
+                                    );
+                                  },
+                                  )
+                              )
+                            ]
                         ),
-                        child: Text(fechaDesde.dateToString(),
-                            textScaleFactor: 2
-                        )
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.calendar_today),
-                      iconSize: 25,
-                      tooltip: 'Austar la fecha de inicio del evento',
-                      onPressed: () =>
-                          fechaDesde.selectDate(context)
-                              .then((value) => setState(() => null)),
-                    ),
-                    Container(
-                      decoration: ShapeDecoration(
-                        color: Colors.white,
-                        shape: Border.all(
-                          color: Colors.black,
-                          width: 1.0,
+                        Row(
+                          children: <Widget>[
+                            const Text(" Final  ",
+                                textScaleFactor: 2
+                            ),
+                            FutureBuilder<DateTime?>(
+                                future: _futFechaHasta,
+                                builder: (BuildContext context, AsyncSnapshot<DateTime?> snapshot) {
+                                  DateTime? newFecha = snapshot.data;
+                                  if(newFecha != null) {
+                                    //setState(() =>
+                                    fechaHasta = newFecha as DateTime;
+                                    //);
+                                  }
+
+                                  return Container(
+                                    decoration: ShapeDecoration(
+                                      color: Colors.white,
+                                      shape: Border.all(
+                                        color: Colors.black,
+                                        width: 1.0,
+                                      ),
+                                    ),
+                                    child: Text(dateToString(fechaHasta),
+                                        textScaleFactor: 2
+                                    ),
+                                  );
+                                }
+                            ),
+                            IconButton(
+                                icon: const Icon(Icons.calendar_today),
+                                iconSize: 25,
+                                tooltip: 'Austar la fecha de fin del evento',
+                                onPressed: () => setState(() {
+                                  _futFechaHasta = showDatePicker(
+                                      context: context,
+                                      initialDate: fechaHasta,
+                                      firstDate: DateTime(2021),
+                                      lastDate: DateTime(2076)
+                                  );
+                                }
+                                )
+                            ),
+                            FutureBuilder<TimeOfDay?>(
+                                future: _futTimeHasta,
+                                builder: (BuildContext context, AsyncSnapshot<TimeOfDay?> snapshot) {
+                                  TimeOfDay? newTime = snapshot.data;
+
+                                  if(newTime != null) {
+                                    //setState(() =>
+                                    fechaHasta = DateTime(
+                                        fechaHasta.year,
+                                        fechaHasta.month,
+                                        fechaHasta.day,
+                                        newTime.hour,
+                                        newTime.minute
+                                      //)
+                                    );
+                                  }
+
+                                  return Container(
+                                      decoration: ShapeDecoration(
+                                        color: Colors.white,
+                                        shape: Border.all(
+                                          color: Colors.black,
+                                          width: 1.0,
+                                        ),
+                                      ),
+                                      child: Text(timeToString(fechaHasta),
+                                          textScaleFactor: 2
+                                      )
+                                  );
+                                }
+                            ),
+                            IconButton(
+                                icon: const Icon(Icons.access_time),
+                                iconSize: 25,
+                                tooltip: 'Austar la hora de fin del evento',
+                                onPressed: () => setState(() {
+                                  _futTimeHasta = showTimePicker(
+                                    context: context,
+                                    initialTime: TimeOfDay(
+                                        hour: fechaHasta.hour,
+                                        minute: fechaHasta.minute
+                                    ),
+                                  );
+                                }
+                                )
+                            )
+                          ],
                         ),
-                      ),
-                      child: Text(fechaDesde.timeToString(),
-                          textScaleFactor: 2
-                      ),
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.access_time),
-                      iconSize: 25,
-                      color: Colors.brown,
-                      tooltip: 'Austar la hora de inicio del evento',
-                      onPressed: () =>
-                          fechaDesde.selectTime(context)
-                              .then((value) => setState(() => null)),
-                    ),
-                  ]
+                        IconButton(
+                            alignment: Alignment.topRight,
+                            icon: const Icon(Icons.search),
+                            iconSize: 25,
+                            tooltip: 'Austar la fecha de inicio del evento',
+                            onPressed: () => setState(() {
+                              _futAccLog = getEvent(widget.facility['id'],
+                                  fechaDesde, fechaHasta);
+                            })
+                        ),
+                      ]
+                  )
               ),
-              Row(
-                children: <Widget>[
-                  const Text(" Final  ",
-                      textScaleFactor: 2
-                  ),
-                  Container(
-                    decoration: ShapeDecoration(
-                      color: Colors.white,
-                      shape: Border.all(
-                        color: Colors.black,
-                        width: 1.0,
-                      ),
-                    ),
-                    child: Text(fechaHasta.dateToString(),
-                        textScaleFactor: 2
-                    ),
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.calendar_today),
-                    iconSize: 25,
-                    tooltip: 'Austar la fecha de inicio del evento',
-                    onPressed: () =>
-                        fechaHasta.selectDate(context)
-                            .then((value) => setState(() => null)),
-                  ),
-                  Container(
-                      decoration: ShapeDecoration(
-                        color: Colors.white,
-                        shape: Border.all(
-                          color: Colors.black,
-                          width: 1.0,
-                        ),
-                      ),
-                      child: Text(fechaHasta.timeToString(),
-                          textScaleFactor: 2
-                      )
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.access_time),
-                    iconSize: 25,
-                    tooltip: 'Austar la fecha de inicio del evento',
-                    onPressed: () =>
-                        fechaHasta.selectTime(context)
-                            .then((value) => setState(() => null)),
-                  ),
-                ],
-              ),
-              IconButton(
-                alignment: Alignment.topRight,
-                icon: const Icon(Icons.search),
-                iconSize: 25,
-                tooltip: 'Austar la fecha de inicio del evento',
-                onPressed: () => setState(() {
-                    _future = getEvent(widget.facility,
-                        fechaDesde.current, fechaHasta.current);
-                  }
-                ),
-              ),*/
               FutureBuilder<List>(
-                future: _future,
+                future: _futAccLog,
                 builder: (BuildContext context, AsyncSnapshot<List> snapshot) {
                   switch (snapshot.connectionState) {
                     case ConnectionState.waiting:
@@ -488,79 +770,99 @@ class _EventPageState extends State<EventPage> {
                     case ConnectionState.done:
                       if (snapshot.hasError) {
                         return Alert("Fallo al conectar con la base de datos");
-                      } else if (snapshot.hasData) {
-                        //{"temperature":"35.6","timestamp":"2021-08-27T16:09:58.277923+00:00","type":"OUT","user":{"name":"Beatriz","surname":"Marquez","uuid":"6bd49b45-d916-414d-a1e4-2f0ca04553a0","is_vaccinated":false,"phone":"971-779-685","email":"beatriz.marquez@example.com"}}
-                        List accesos = snapshot.data as List;
-
-                        if (accesos.isEmpty) {
-                          return const Text("En este momento no se encuntra"
-                              "ningún acceso, pruebe más tarde.");
-                        }
-
-                        return DataTable(
-                          columns: const <DataColumn>[
-                            DataColumn(
-                              label: Text(
-                                'Tipo',
-                                style: TextStyle(fontStyle: FontStyle.italic),
-                              ),
-                            ),
-                            DataColumn(
-                              label: Text(
-                                'Fecha',
-                                style: TextStyle(fontStyle: FontStyle.italic),
-                              ),
-                            ),
-                            DataColumn(
-                              label: Text(
-                                'Hora',
-                                style: TextStyle(fontStyle: FontStyle.italic),
-                              ),
-                            ),
-                            DataColumn(
-                              label: Text(
-                                'Usuario',
-                                style: TextStyle(fontStyle: FontStyle.italic),
-                              ),
-                            ),
-                          ],
-                          rows: List<DataRow>.generate(
-                            accesos.length,
-                            (idx) {
-                              Map acceso = accesos[idx] as Map;
-                              Map user = acceso['user'] as Map;
-                              return DataRow(
-                                  cells: <DataCell>[
-                                    DataCell(Text(acceso['type'])),
-                                    DataCell(Text(acceso['timestamp']
-                                        .toString().substring(0,11))),
-                                    DataCell(Text(acceso['timestamp']
-                                        .toString().substring(11,16))),
-                                    DataCell(Text(
-                                        '${user['name']} '
-                                            '${user['surname']}')),
-                                  ]
-                              );
-                            }
-                          ),
-                        );
                       } else {
-                        return const Text('Empty data');
+                        List accesos = snapshot.data as List;
+                        DateTime now = DateTime.now();
+
+                        if(fechaDesde.isAfter(now) || fechaHasta.isAfter(now)){
+                          return const Text("Las fechas deben ser previas a la actual.",
+                              textScaleFactor: 1.5
+                          );
+                        } else if(fechaDesde.isAfter(fechaHasta)) {
+                          return const Text("La fecha de inicio debe ser anterior a la final.",
+                              textScaleFactor: 1.5
+                          );
+                        } else if(accesos.isEmpty){
+                          return const Text("No se obtuvieron resultados.",
+                              textScaleFactor: 1.5
+                          );
+                        } else {
+                          return Expanded(child: SingleChildScrollView(
+                              child: DataTable(
+                                columns: const <DataColumn>[
+                                  DataColumn(
+                                    label: Text(
+                                      'Tipo',
+                                      style: TextStyle(
+                                          fontStyle: FontStyle.italic),
+                                    ),
+                                  ),
+                                  DataColumn(
+                                    label: Text(
+                                      'Fecha',
+                                      style: TextStyle(
+                                          fontStyle: FontStyle.italic),
+                                    ),
+                                  ),
+                                  DataColumn(
+                                    label: Text(
+                                      'Hora',
+                                      style: TextStyle(
+                                          fontStyle: FontStyle.italic),
+                                    ),
+                                  ),
+                                  DataColumn(
+                                    label: Text(
+                                      'Usuario',
+                                      style: TextStyle(
+                                          fontStyle: FontStyle.italic),
+                                    ),
+                                  ),
+                                ],
+                                rows: List<DataRow>.generate(
+                                    accesos.length,
+                                        (idx) {
+                                      Map acceso = accesos[idx] as Map;
+                                      Map user = acceso['user'] as Map;
+                                      return DataRow(
+                                          cells: <DataCell>[
+                                            DataCell(Text(acceso['type'])),
+                                            DataCell(
+                                                Text(acceso['timestamp']
+                                                    .toString().substring(
+                                                    0, 11))),
+                                            DataCell(
+                                                Text(acceso['timestamp']
+                                                    .toString().substring(
+                                                    11, 16))),
+                                            DataCell(Text(
+                                                '${user['name']} '
+                                                    '${user['surname']}')),
+                                          ]
+                                      );
+                                    }
+                                ),
+                              )
+                          )
+                          );
+                        }
                       }
                     default:
-                      return Text('State: ${snapshot.connectionState}');
+                      return Alert("Error: ${snapshot.connectionState}");
                   }
                 },
               ),
-            /*]
-        )*/
-    );
+            ]
+        ),
+    ));
   }
 }
 
 class RegistrarPage extends StatelessWidget {
-  final String qr;
-  const RegistrarPage(this.qr, {Key? key}) : super(key: key);
+  final String uuid;
+  final Map facility;
+  
+  const RegistrarPage({required this.uuid, required this.facility, Key? key}) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
@@ -568,92 +870,12 @@ class RegistrarPage extends StatelessWidget {
         appBar: AppBar(
           title: Text('Registrar'),
         ),
-        body: Text(qr)
+        body: Text(uuid)
     );
   }
 }
 
-class MyHomePage extends StatefulWidget {
-  const MyHomePage({Key? key, required this.title}) : super(key: key);
 
-  // This widget is the home page of your application. It is stateful, meaning
-  // that it has a State object (defined below) that contains fields that affect
-  // how it looks.
-
-  // This class is the configuration for the state. It holds the values (in this
-  // case the title) provided by the parent (in this case the App widget) and
-  // used by the build method of the State. Fields in a Widget subclass are
-  // always marked "final".
-
-  final String title;
-
-  @override
-  State<MyHomePage> createState() => _MyHomePageState();
-}
-
-class _MyHomePageState extends State<MyHomePage> {
-  int _counter = 0;
-
-  void _incrementCounter() {
-    setState(() {
-      // This call to setState tells the Flutter framework that something has
-      // changed in this State, which causes it to rerun the build method below
-      // so that the display can reflect the updated values. If we changed
-      // _counter without calling setState(), then the build method would not be
-      // called again, and so nothing would appear to happen.
-      _counter++;
-    });
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    // This method is rerun every time setState is called, for instance as done
-    // by the _incrementCounter method above.
-    //
-    // The Flutter framework has been optimized to make rerunning build methods
-    // fast, so that you can just rebuild anything that needs updating rather
-    // than having to individually change instances of widgets.
-    return Scaffold(
-      appBar: AppBar(
-        // Here we take the value from the MyHomePage object that was created by
-        // the App.build method, and use it to set our appbar title.
-        title: Text(widget.title),
-      ),
-      body: Center(
-        // Center is a layout widget. It takes a single child and positions it
-        // in the middle of the parent.
-        child: Column(
-          // Column is also a layout widget. It takes a list of children and
-          // arranges them vertically. By default, it sizes itself to fit its
-          // children horizontally, and tries to be as tall as its parent.
-          //
-          // Invoke "debug painting" (press "p" in the console, choose the
-          // "Toggle Debug Paint" action from the Flutter Inspector in Android
-          // Studio, or the "Toggle Debug Paint" command in Visual Studio Code)
-          // to see the wireframe for each widget.
-          //
-          // Column has various properties to control how it sizes itself and
-          // how it positions its children. Here we use mainAxisAlignment to
-          // center the children vertically; the main axis here is the vertical
-          // axis because Columns are vertical (the cross axis would be
-          // horizontal).
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: <Widget>[
-            const Text(
-              'You have pushed the button this many times:',
-            ),
-            Text(
-              '$_counter',
-              style: Theme.of(context).textTheme.headline4,
-            ),
-          ],
-        ),
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _incrementCounter,
-        tooltip: 'Increment',
-        child: const Icon(Icons.add),
-      ), // This trailing comma makes auto-formatting nicer for build methods.
-    );
-  }
+void main() {
+  runApp(const MyApp());
 }
