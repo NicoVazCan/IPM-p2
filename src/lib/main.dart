@@ -49,8 +49,8 @@ class Modelo {
     var request = http.Request("GET", url);
     request.headers.addAll({"x-hasura-admin-secret": "myadminsecretkey"});
     request.body =
-    '{ "startdate": "${desde.toIso8601String()}+00:000", "enddate": "${hasta
-        .toIso8601String()}+00:000"}';
+    '{ "startdate": "${desde.toIso8601String()}", "enddate": "${hasta
+        .toIso8601String()}"}';
     var client = http.Client();
     var streamedResponse = await client.send(request);
     var dataAsString = await streamedResponse.stream.bytesToString();
@@ -661,7 +661,7 @@ class _EventPageState extends State<EventPage> {
                         Row(
                             children: <Widget>[
                               const Text(" Inicio ",
-                                  textScaleFactor: 2
+                                  textScaleFactor: 1.5
                               ),
                               FutureBuilder<DateTime?>(
                                   future: _futFechaDesde,
@@ -680,14 +680,14 @@ class _EventPageState extends State<EventPage> {
                                           ),
                                         ),
                                         child: Text(dateToString(fechaDesde),
-                                            textScaleFactor: 2
+                                            textScaleFactor: 1.5
                                         )
                                     );
                                   }
                               ),
                               IconButton(
                                   icon: const Icon(Icons.calendar_today),
-                                  iconSize: 25,
+                                  iconSize: 20,
                                   tooltip: 'Austar la fecha de inicio del evento',
                                   onPressed: () => setState(() {
                                     _futFechaDesde = showDatePicker(
@@ -705,14 +705,12 @@ class _EventPageState extends State<EventPage> {
                                     TimeOfDay? newTime = snapshot.data;
 
                                     if(newTime != null) {
-                                      //setState(() =>
                                       fechaDesde = DateTime(
                                           fechaDesde.year,
                                           fechaDesde.month,
                                           fechaDesde.day,
                                           newTime.hour,
                                           newTime.minute
-                                        //  )
                                       );
                                     }
 
@@ -725,15 +723,15 @@ class _EventPageState extends State<EventPage> {
                                         ),
                                       ),
                                       child: Text(timeToString(fechaDesde),
-                                          textScaleFactor: 2
+                                          textScaleFactor: 1.5
                                       ),
                                     );
                                   }
                               ),
                               IconButton(
                                   icon: const Icon(Icons.access_time),
-                                  iconSize: 25,
-                                  tooltip: 'Austar la hora de inicio del evento',
+                                  iconSize: 20,
+                                  tooltip: 'Buscar',
                                   onPressed: () => setState((){
                                     _futTimeDesde = showTimePicker(
                                         context: context,
@@ -750,7 +748,7 @@ class _EventPageState extends State<EventPage> {
                         Row(
                           children: <Widget>[
                             const Text(" Final  ",
-                                textScaleFactor: 2
+                                textScaleFactor: 1.5
                             ),
                             FutureBuilder<DateTime?>(
                                 future: _futFechaHasta,
@@ -771,14 +769,14 @@ class _EventPageState extends State<EventPage> {
                                       ),
                                     ),
                                     child: Text(dateToString(fechaHasta),
-                                        textScaleFactor: 2
+                                        textScaleFactor: 1.5
                                     ),
                                   );
                                 }
                             ),
                             IconButton(
                                 icon: const Icon(Icons.calendar_today),
-                                iconSize: 25,
+                                iconSize: 20,
                                 tooltip: 'Austar la fecha de fin del evento',
                                 onPressed: () => setState(() {
                                   _futFechaHasta = showDatePicker(
@@ -816,14 +814,14 @@ class _EventPageState extends State<EventPage> {
                                         ),
                                       ),
                                       child: Text(timeToString(fechaHasta),
-                                          textScaleFactor: 2
+                                          textScaleFactor: 1.5
                                       )
                                   );
                                 }
                             ),
                             IconButton(
                                 icon: const Icon(Icons.access_time),
-                                iconSize: 25,
+                                iconSize: 20,
                                 tooltip: 'Austar la hora de fin del evento',
                                 onPressed: () => setState(() {
                                   _futTimeHasta = showTimePicker(
@@ -841,7 +839,7 @@ class _EventPageState extends State<EventPage> {
                         IconButton(
                             alignment: Alignment.topRight,
                             icon: const Icon(Icons.search),
-                            iconSize: 25,
+                            iconSize: 20,
                             tooltip: 'Austar la fecha de inicio del evento',
                             onPressed: () => setState(() {
                               _futAccLog = Modelo.getEvent(widget.facility['id'],
