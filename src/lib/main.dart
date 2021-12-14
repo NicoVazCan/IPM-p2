@@ -1,9 +1,11 @@
 import 'dart:convert';
+import 'package:analyzer/dart/element/type.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:async';
 import 'package:flutter_barcode_scanner/flutter_barcode_scanner.dart';
+import 'package:provider/provider.dart';
 
 /*
 var url = Uri.parse("http://10.0.2.2:8080/api/rest/facility_access_log/111/daterange%22);
@@ -28,9 +30,7 @@ hay que cambiar en la url de la petición localhost:8080 por 10.0.2.2:8080
 
 // MODELO
 class Modelo {
-  static String ip = "10.0.2.2";
-
-  static Future<List> getFacilities() async {
+  static Future<Map> getFacilities(String ip) async {
     var url = Uri.parse("http://$ip:8080/api/rest/facilities");
     var request = http.Request("GET", url);
     request.headers.addAll({"x-hasura-admin-secret": "myadminsecretkey"});
@@ -40,10 +40,10 @@ class Modelo {
     client.close();
     await Future.delayed(Duration(seconds: 2));
     var dataAsMap = json.decode(dataAsString) as Map;
-    return dataAsMap["facilities"];
+    return {"status": streamedResponse.statusCode, "data": dataAsMap["facilities"]};
   }
 
-  static Future<List> getEvent(int facility_id, DateTime desde, DateTime hasta) async {
+  static Future<Map> getEvent(String ip, int facility_id, DateTime desde, DateTime hasta) async {
     var url = Uri.parse(
         "http://$ip:8080/api/rest/facility_access_log/$facility_id/daterange");
     var request = http.Request("GET", url);
@@ -57,10 +57,10 @@ class Modelo {
     client.close();
     await Future.delayed(Duration(seconds: 2));
     var dataAsMap = json.decode(dataAsString) as Map;
-    return dataAsMap["access_log"];
+    return {"status": streamedResponse.statusCode, "data": dataAsMap["access_log"]};
   }
 
-  static Future<List> getUsers(String name, String surname) async {
+  static Future<Map> getUsers(String ip, String name, String surname) async {
     name = name.trim();
     surname = surname.trim();
 
@@ -77,7 +77,7 @@ class Modelo {
       List users = dataAsMap["users"];
 
       if (!users.isEmpty) {
-        return users;
+        return {"status": streamedResponse.statusCode, "data": users};
       }
     }
 
@@ -125,10 +125,10 @@ class Modelo {
       }
     }
 
-    return users;
+    return {"status": streamedResponse.statusCode, "data": users};
   }
 
-  static Future<Map> postAccLog(int facility_id, String user_id,
+  static Future<Map> postAccLog(String ip, int facility_id, String user_id,
       DateTime timestamp, String type, double temperature) async {
     var url = Uri.parse("http://$ip:8080/api/rest/access_log");
     var request = http.Request("POST", url);
@@ -147,14 +147,9 @@ class Modelo {
     client.close();
     await Future.delayed(Duration(seconds: 2));
     var dataAsMap = json.decode(dataAsString) as Map;
-    return dataAsMap["insert_access_log_one"];
+    return {"status": streamedResponse.statusCode, "data": dataAsMap["insert_access_log_one"]};
   }
 }
-String dateToString(DateTime fecha) =>
-    fecha.toIso8601String().substring(0, 10);
-
-String timeToString(DateTime fecha) =>
-    fecha.toString().substring(11, 16);
 
 enum Idiomas { esp, eng }
 
@@ -181,152 +176,135 @@ class Alert extends StatelessWidget {
   }
 }
 
-class MyApp extends StatelessWidget {
-  const MyApp({Key? key}) : super(key: key);
+class Facilities extends ChangeNotifier {
+  Map? _facilities;
 
-  // This widget is the root of your application.
-  @override
-  Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Flutter Demo',
-      theme: ThemeData(primarySwatch: Colors.blue,),
-      home: FacilitiesPage(),
-      debugShowCheckedModeBanner: false,
-    );
+  Facilities(String ip) {
+    askFacilities(ip);
+  }
+
+  Map? get getFacilities {
+    return _facilities;
+  }
+
+  void askFacilities(String ip) async {
+    _facilities = null;
+    notifyListeners();
+    _facilities = await Modelo.getFacilities(ip);
+    notifyListeners();
   }
 }
 
-class FacilitiesPage extends StatefulWidget {
-  const FacilitiesPage({Key? key}) : super(key: key);
-
-  @override
-  _FacilitiesPageState createState() => _FacilitiesPageState();
-}
-
-class _FacilitiesPageState extends State<FacilitiesPage> {
-  late Future<List> _value;
-
-  @override
-  initState() {
-    super.initState();
-    _value = Modelo.getFacilities();
-  }
+class FacilitiesPage extends StatelessWidget {
+  FacilitiesPage({Key? key}) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-        appBar: AppBar(
-          title: const Text("Centros"),
-        ),
-        persistentFooterButtons: <Widget>[
-          IconButton(
-              icon: const Icon(Icons.sync),
-              iconSize: 20,
-              tooltip: 'Recargar',
-              onPressed: () => setState(() {
-                _value = Modelo.getFacilities();
-              })
-          ),
-          IconButton(
-              icon: const Icon(Icons.settings),
-              iconSize: 20,
-              tooltip: 'Configuración',
-              onPressed: () =>
-                  Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                          builder: (context) => ConfiguracionPage()
-                      )
-                  )
-          ),
-        ],
-        body: Center(child: Column(
-            children: <Widget>[
-              Container(
-                  decoration: ShapeDecoration(
-                    color: Colors.white,
-                    shape: Border.all(
-                      color: Colors.black,
-                      width: 1.0,
-                    ),
-                  ),
-                  child: const Text("Seleccione el centro para"
-                      " registrar u obtener su información:",
-                      textScaleFactor: 1.5
-                  )
+            appBar: AppBar(
+              title: const Text("Centros"),
+            ),
+            persistentFooterButtons: <Widget>[
+              IconButton(
+                  icon: const Icon(Icons.sync),
+                  iconSize: 20,
+                  tooltip: 'Recargar',
+                  onPressed: () {
+                    Provider.of<Facilities>(context, listen: false)
+                        .askFacilities(Provider.of<Ip>(context, listen: false).getIp);
+                  }
               ),
-              FutureBuilder<List>(
-                future: _value,
-                builder: (BuildContext context, AsyncSnapshot<List> snapshot) {
-                  switch (snapshot.connectionState) {
-                    case ConnectionState.waiting:
-                      return CircularProgressIndicator();
-                    case ConnectionState.done:
-                      if (snapshot.hasError) {
-                        return Alert("Fallo al conectar con la base de datos");
-                      } else if (snapshot.hasData) {
-                        List facilities = snapshot.data as List;
+              IconButton(
+                  icon: const Icon(Icons.settings),
+                  iconSize: 20,
+                  tooltip: 'Configuración',
+                  onPressed: () =>
+                      Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                              builder: (context) => ConfiguracionPage()
+                          )
+                      )
+              ),
+            ],
+            body: Center(child: Column(
+                children: <Widget>[
+                  Container(
+                      decoration: ShapeDecoration(
+                        color: Colors.white,
+                        shape: Border.all(
+                          color: Colors.black,
+                          width: 1.0,
+                        ),
+                      ),
+                      child: const Text("Seleccione el centro para"
+                          " registrar u obtener su información:",
+                          textScaleFactor: 1.5
+                      )
+                  ),
+                  Loader(
+                      Provider.of<Facilities>(context).getFacilities,
+                      (List facilities) => Expanded(child: ListView.builder(
+                        itemCount: facilities.length,
+                        itemBuilder: (context, index) {
+                          Map facility = facilities[index];
 
-                        if (facilities.isEmpty) {
-                          return const Text("En este momento no se encuntra"
-                              " ningún centro disponible, pruebe más tarde.",
-                              textScaleFactor: 1.5
-                          );
-                        }
-
-                        return Expanded(child: ListView.builder(
-                            itemCount: facilities.length,
-                            itemBuilder: (context, index) {
-                              Map facility = facilities[index];
-
-                              return ListTile(
-                                title: Text(facility["name"]),
-                                onTap: () {
-                                  Navigator.push(
-                                    context,
-                                    MaterialPageRoute(
-                                        builder: (context) =>
-                                            OpcionesPage(facility: facility)),
-                                  );
-                                },
+                          return ListTile(
+                            title: Text(facility["name"]),
+                            onTap: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                    builder: (context) =>
+                                        OpcionesPage(facility: facility)),
                               );
                             },
-                          )
                           );
-                      }
-                      return Alert("Error: ${snapshot.connectionState}");
-                    default:
-                      return Alert("Error: ${snapshot.connectionState}");
-                  }
-                },
-              ),
-            ]
-        )
-        )
+                        },
+                      )
+                      )
+                  )
+                ]
+            )
+            )
     );
   }
 }
 
-class ConfiguracionPage extends StatefulWidget {
-  ConfiguracionPage({Key? key}): super(key: key);
+class Loader extends StatelessWidget {
+  Map? response;
+  Function builder;
+  Loader(this.response, this.builder, {Key? key}) : super(key: key);
 
   @override
-  _ConfigurationPageState createState() => _ConfigurationPageState();
-
+  Widget build(BuildContext context) {
+    if(response == null) {
+      return CircularProgressIndicator();
+    }
+    if(response!['status'] == 200) {
+      return builder(response!['value']);
+    }
+    return Alert("Error al conectar con la base de datos.\n"
+        "Código de estado: ${response!['status']}");
+  }
 }
 
-class _ConfigurationPageState extends State<StatefulWidget> {
-  late String ipBBDD;
-  late Idiomas idioma;
 
-  @override
-  void initState() {
-    super.initState();
-    ipBBDD = Modelo.ip;
-    idioma = Idiomas.esp;
+class Ip extends ChangeNotifier {
+  String ip = "10.0.2.2";
+
+  String get getIp {
+    return ip;
   }
 
+  set setIp(String ip) {
+    this.ip = ip;
+    notifyListeners();
+  }
+}
 
+class ConfiguracionPage extends StatelessWidget {
+  ConfiguracionPage({Key? key}): super(key: key);
 
   @override
   Widget build(BuildContext context) {
@@ -336,7 +314,8 @@ class _ConfigurationPageState extends State<StatefulWidget> {
         ),
         body: TextFormField(
           decoration: InputDecoration(
-              hintText: ipBBDD, labelText: "Introduzca la IP de la BBDD"),
+              hintText: Provider.of<Ip>(context).getIp,
+              labelText: "Introduzca la IP de la BBDD"),
           keyboardType: TextInputType.number,
           autovalidateMode: AutovalidateMode.onUserInteraction,
           validator: (value) {
@@ -359,10 +338,7 @@ class _ConfigurationPageState extends State<StatefulWidget> {
             if(value == null) return;
             value = value.trim();
             if (!value.isEmpty) {
-              setState(() {
-                ipBBDD = value;
-                Modelo.ip = ipBBDD;
-              });
+              Provider.of<Ip>(context, listen: false).setIp = value;
             }
           },
         )
@@ -438,7 +414,13 @@ class _IdentificarPageState extends State<IdentificarPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return MultiProvider(
+        providers: [
+        ChangeNotifierProvider.value(
+        value: Usuarios(Provider.of<Ip>(context, listen: false).getIp, '', ''),
+    ),
+    ],
+    child: Scaffold(
         appBar: AppBar(title: const Text('Identificar usuario')),
         body: Builder(builder: (BuildContext context)
     {
@@ -490,29 +472,33 @@ class _IdentificarPageState extends State<IdentificarPage> {
             );
           }
       );
-    }));
+    })));
   }
 }
 
-class UsuariosPage extends StatefulWidget {
+class Usuarios extends ChangeNotifier {
+  Map? _usuarios = null;
+
+  Usuarios(String ip, String name, String surname) {
+    askUsuarios(ip, name, surname);
+  }
+
+  Map? get getUsuarios {
+    return _usuarios;
+  }
+
+  void askUsuarios(String ip, String name, String surname) async {
+    _usuarios = null;
+    notifyListeners();
+    _usuarios = await Modelo.getUsers(ip, name, surname);
+    notifyListeners();
+  }
+}
+
+class UsuariosPage extends StatelessWidget {
   Map facility;
 
   UsuariosPage({Key? key, required this.facility}): super(key: key);
-
-  @override
-  _UsuariosPageState createState() => _UsuariosPageState();
-}
-
-class _UsuariosPageState extends State<UsuariosPage> {
-  late Future<List> _value;
-  String _nombre = '',
-      _apellido = '';
-
-  @override
-  initState() {
-    super.initState();
-    _value = Modelo.getUsers(_nombre, _apellido);
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -529,64 +515,53 @@ class _UsuariosPageState extends State<UsuariosPage> {
                 onFieldSubmitted: (value) {
                   value = value.trim();
                   if (!value.isEmpty) {
+                    String nombre = '',
+                        apellido = '';
                     List<String> values = value.split(' ');
-
-                    setState(() {
-                      _nombre = values[0];
-                      if (values.length > 1) {
-                        _apellido = values[1];
-                      }
-                        _value = Modelo.getUsers(_nombre, _apellido);
-                    });
+                    nombre = values[0];
+                    if (values.length > 1) {
+                      apellido = values[1];
+                    }
+                    Provider.of<Usuarios>(context, listen: false)
+                        .askUsuarios(Provider
+                        .of<Ip>(context, listen: false)
+                        .getIp, nombre, apellido);
                   }
                 },
               ),
-              FutureBuilder<List>(
-                future: _value,
-                builder: (BuildContext context, AsyncSnapshot<List> snapshot) {
-                  switch (snapshot.connectionState) {
-                    case ConnectionState.waiting:
-                      return CircularProgressIndicator();
-                    case ConnectionState.done:
-                      if (snapshot.hasError) {
-                        return Alert("Fallo al conectar con la base de datos");
-                      } else {
-                        List users = snapshot.data as List;
+              Loader(Provider
+                  .of<Usuarios>(context, listen: false)
+                  .getUsuarios,
+                      (List users) {
+                    if (users.isEmpty) {
+                      return const Text("No se encontraron coincidencias",
+                          textScaleFactor: 1.5
+                      );
+                    }
 
-                        if (users.isEmpty) {
-                          return const Text("No se encontraron coincidencias",
-                              textScaleFactor: 1.5
-                          );
-                        }
+                    return Expanded(child: ListView.builder(
+                      itemCount: users.length,
+                      itemBuilder: (context, index) {
+                        Map user = users[index];
 
-                        return Expanded(child: ListView.builder(
-                          itemCount: users.length,
-                          itemBuilder: (context, index) {
-                            Map user = users[index];
-
-                            return ListTile(
-                              title: Text("${user["name"]} ${user["surname"]}\n"
-                                  "nº: ${user["phone"]}"),
-                              onTap: () {
-                                Navigator.push(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder: (context) =>
-                                          RegistrarPage(uuid: user["uuid"],
-                                              facility: widget.facility),
-                                    )
-                                );
-                              },
+                        return ListTile(
+                          title: Text("${user["name"]} ${user["surname"]}\n"
+                              "nº: ${user["phone"]}"),
+                          onTap: () {
+                            Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) =>
+                                      RegistrarPage(uuid: user["uuid"],
+                                          facility: facility),
+                                )
                             );
                           },
-                        )
                         );
-                      }
-                    default:
-                      return Alert("Error: ${snapshot.connectionState}");
-                  }
-                },
-              ),
+                      },
+                    )
+                    );
+                  })
             ]
         )
         )
@@ -594,19 +569,69 @@ class _UsuariosPageState extends State<UsuariosPage> {
   }
 }
 
-class EventPage extends StatefulWidget {
+class Event extends ChangeNotifier {
+  Map? event = null;
+
+  Event(String ip, int facility_id,
+      DateTime desde, DateTime hasta) {
+    askEvent(ip, facility_id, desde, hasta);
+  }
+
+  Map? get getEvent => event;
+
+  void askEvent(String ip, int facility_id,
+      DateTime desde, DateTime hasta) async {
+    event = null;
+    notifyListeners();
+    event = await Modelo.getEvent(ip, facility_id, desde, hasta);
+    notifyListeners();
+  }
+}
+
+abstract class FechaHora extends ChangeNotifier {
+  DateTime fecha = DateTime.now();
+  TimeOfDay hora = TimeOfDay.now();
+
+  void setFecha(BuildContext context) async {
+    DateTime? nuevaFecha = await showDatePicker(
+        context: context,
+        initialDate: fecha,
+        firstDate: DateTime(2021),
+        lastDate: DateTime(2076)
+    );
+    if(nuevaFecha != null) {
+      fecha = nuevaFecha;
+      notifyListeners();
+    }
+  }
+
+  void setHora(BuildContext context) async {
+    TimeOfDay? nuevaHora = await showTimePicker(
+        context: context,
+        initialTime: hora
+    );
+    if(nuevaHora != null) {
+      hora = nuevaHora;
+      notifyListeners();
+    }
+  }
+
+  String fechaToString() =>
+      fecha.toIso8601String().substring(0, 10);
+
+  String horaToString() =>
+      hora.toString();
+}
+
+class FechaHoraDesde extends FechaHora {}
+class FechaHoraHasta extends FechaHora {}
+
+class EventPage extends StatelessWidget {
   Map facility;
 
   EventPage({Key? key, required this.facility}) : super(key: key);
-
-  @override
-  _EventPageState createState() => _EventPageState();
-}
-
-class _EventPageState extends State<EventPage> {
   late DateTime fechaDesde;
   late DateTime fechaHasta;
-  late Future<List> _futAccLog;
   late Future<DateTime?> _futFechaDesde;
   late Future<DateTime?> _futFechaHasta;
   late Future<TimeOfDay?> _futTimeDesde;
@@ -629,7 +654,9 @@ class _EventPageState extends State<EventPage> {
     fechaDesde = DateTime(year, month, day,
         fechaHasta.hour, fechaHasta.minute);
 
-    _futAccLog = Modelo.getEvent(widget.facility['id'], fechaDesde, fechaHasta);
+    _futAccLog = Modelo.getEvent(
+        Provider.of<Ip>(context, listen: false).getIp,
+        widget.facility['id'], fechaDesde, fechaHasta);
 
     _futFechaDesde = Future(() => fechaDesde);
     _futFechaHasta = Future(() => fechaHasta);
@@ -842,7 +869,9 @@ class _EventPageState extends State<EventPage> {
                             iconSize: 20,
                             tooltip: 'Austar la fecha de inicio del evento',
                             onPressed: () => setState(() {
-                              _futAccLog = Modelo.getEvent(widget.facility['id'],
+                              _futAccLog = Modelo.getEvent(
+                                  Provider.of<Ip>(context, listen: false).getIp,
+                                  widget.facility['id'],
                                   fechaDesde, fechaHasta);
                             })
                         ),
@@ -1119,6 +1148,7 @@ class _RegistrarPageState extends State<RegistrarPage> {
                 tooltip: 'Austar la fecha de inicio del evento',
                 onPressed: () => setState(() {
                   _futAcc = Modelo.postAccLog(
+                      Provider.of<Ip>(context, listen: false).getIp,
                       widget.facility['id'],
                       widget.uuid,
                       fecha,
@@ -1179,6 +1209,106 @@ class _RegistrarPageState extends State<RegistrarPage> {
 }
 
 
+class MyApp extends StatelessWidget {
+  const MyApp({Key? key}) : super(key: key);
+
+  // This widget is the root of your application.
+  @override
+  Widget build(BuildContext context) {
+    return MultiProvider(
+        providers: [
+        ChangeNotifierProvider.value(
+        value: Facilities(Provider.of<Ip>(context, listen: false).getIp),
+    ),
+    ],
+    child: MaterialApp(
+      title: 'Flutter Demo',
+      theme: ThemeData(primarySwatch: Colors.blue,),
+      home: FacilitiesPage(),
+      debugShowCheckedModeBanner: false,
+    ));
+  }
+}
+
+class Counter extends ChangeNotifier {
+  var _count = 0;
+  int get getCounter {
+    return _count;
+  }
+
+  void incrementCounter() async {
+    await Future.delayed(Duration(seconds: 2));
+    _count += 1;
+    notifyListeners();
+  }
+}
+
+/*
+class MyApp extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return MultiProvider(
+      providers: [
+        ChangeNotifierProvider.value(
+          value: Counter(),
+        ),
+      ],
+      child: MaterialApp(
+        title: 'Flutter Demo',
+        theme: ThemeData(
+          primarySwatch: Colors.blue,
+          visualDensity: VisualDensity.adaptivePlatformDensity,
+        ),
+        home: MyHomePage("AndroidVille Provider Pattern"),
+      ),
+    );
+  }
+}*/
+
+class MyHomePage extends StatelessWidget {
+  final String title;
+  MyHomePage(this.title);
+  void _incrementCounter(BuildContext context) {
+    Provider.of<Counter>(context, listen: false).incrementCounter();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    var counter = Provider.of<Counter>(context).getCounter;
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(title),
+      ),
+      body: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: <Widget>[
+            Text(
+              'You have pushed the button this many times:',
+            ),
+            Text(
+              '$counter',
+              style: Theme.of(context).textTheme.headline4,
+            ),
+          ],
+        ),
+      ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () => _incrementCounter(context),
+        tooltip: 'Increment',
+        child: Icon(Icons.add),
+      ),
+    );
+  }
+}
+
+
 void main() {
-  runApp(const MyApp());
+  runApp(MultiProvider(
+      providers: [
+        ChangeNotifierProvider.value(
+          value: Ip(),
+        ),
+      ],
+      child: MyApp()));
 }
