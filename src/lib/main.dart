@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'package:analyzer/dart/analysis/context_builder.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -147,6 +146,24 @@ class Modelo {
     var dataAsMap = json.decode(dataAsString) as Map;
     return {"status": streamedResponse.statusCode, "data": dataAsMap["insert_access_log_one"]};
   }
+
+  static int getAforo(List access_log){
+    int i=0,aforo=0;
+    Map access = access_log[i];
+    while (i < access_log.length) {
+      Map access = access_log[i];
+      if ((access["type"] as String).toUpperCase().startsWith("IN")) {
+        aforo++;
+      } else {
+        aforo--;
+      }
+      i++;
+    }
+    if(aforo<0){
+      aforo=0;
+    }
+    return aforo;
+  }
 }
 
 String fechaToString(DateTime fecha) =>
@@ -184,7 +201,9 @@ class Facilities extends ChangeNotifier {
 }
 
 abstract class Fecha extends ChangeNotifier {
-  DateTime _fecha = DateTime.now();
+  DateTime _fecha;
+
+  Fecha(this._fecha);
 
   DateTime get fecha => _fecha;
 
@@ -215,9 +234,15 @@ abstract class Fecha extends ChangeNotifier {
   }
 }
 
-class FechaDesde extends Fecha {}
-class FechaHasta extends Fecha {}
-class FechaAcceso extends Fecha {}
+class FechaDesde extends Fecha {
+  FechaDesde(DateTime fecha): super(fecha);
+}
+class FechaHasta extends Fecha {
+  FechaHasta(DateTime fecha): super(fecha);
+}
+class FechaAcceso extends Fecha {
+  FechaAcceso(DateTime fecha): super(fecha);
+}
 
 class Acceso extends ChangeNotifier {
   Map? _acceso = {"status": 200, "data": {}};
@@ -410,8 +435,7 @@ class FacilitiesPage extends StatelessWidget {
                   ),
                 ),
                 child: const Text("Seleccione el centro para"
-                    " registrar u obtener su información:",
-                    textScaleFactor: 1.5
+                    " registrar u obtener su información:"
                 )
             ),
             Loader(
@@ -515,9 +539,7 @@ class OpcionesPage extends StatelessWidget {
                   MaterialPageRoute(builder: (context) => IdentificarPage()),
                 );
               },
-              child: const Text('Registrar',
-                  textScaleFactor: 2
-              ),
+              child: const Text('Registrar'),
             ),
             ElevatedButton(
               // Within the SecondRoute widget
@@ -527,9 +549,7 @@ class OpcionesPage extends StatelessWidget {
                   MaterialPageRoute(builder: (context) => EventPage()),
                 );
               },
-              child: const Text('Eventos',
-                  textScaleFactor: 2
-              ),
+              child: const Text('Eventos'),
             )
           ]
         ),
@@ -546,20 +566,7 @@ class IdentificarPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    String ip = Provider.of<Ip>(context).ip;
-
-        return MultiProvider(providers: [
-          ChangeNotifierProvider.value(
-            value: Usuarios(ip, '', ''),
-          ),
-          ChangeNotifierProvider.value(
-            value: FechaAcceso(),
-          ),
-          ChangeNotifierProvider.value(
-            value: Acceso(),
-          ),
-        ],
-        child: Scaffold(
+        return Scaffold(
           appBar: AppBar(title: const Text('Identificar usuario')),
           body: Builder(builder: (BuildContext context) {
             return Container(
@@ -584,9 +591,7 @@ class IdentificarPage extends StatelessWidget {
                                 }
                               }
                           ),
-                          child: const Text('Con QR',
-                              textScaleFactor: 1.5
-                          )
+                          child: const Text('Con QR')
                       ),
                       ElevatedButton(
                           onPressed: () => Navigator.push(
@@ -594,16 +599,14 @@ class IdentificarPage extends StatelessWidget {
                               MaterialPageRoute(builder: (context) =>
                                   UsuariosPage())
                           ),
-                          child: const Text('Manual',
-                              textScaleFactor: 1.5
-                          )
+                          child: const Text('Manual')
                       ),
                     ]
                 )
             );
           }
         )
-    ));
+    );
   }
 }
 
@@ -616,8 +619,9 @@ class UsuariosPage extends StatelessWidget {
       Provider.of<Usuarios>(context, listen: false)
           .askUsuarios(ip, name, surname);
 
-  void _setUsuario(BuildContext context, String uuid) =>
-      Provider.of<Usuario>(context, listen: false).usuario = uuid;
+  void _setUsuario(BuildContext context, Map usuario) =>
+      Provider.of<Usuario>(context, listen: false).usuario =
+        "${usuario["name"]},${usuario["suname"]},${usuario["uuid"]}";
 
   @override
   Widget build(BuildContext context) {
@@ -652,9 +656,7 @@ class UsuariosPage extends StatelessWidget {
                 usuarios,
                 (List users) {
                   if (users.isEmpty) {
-                    return const Text("No se encontraron coincidencias",
-                        textScaleFactor: 1.5
-                    );
+                    return const Text("No se encontraron coincidencias");
                   }
 
                   return Expanded(child: ListView.builder(
@@ -670,7 +672,7 @@ class UsuariosPage extends StatelessWidget {
                               context,
                               MaterialPageRoute(
                                 builder: (context) {
-                                  _setUsuario(context, user["uuid"]);
+                                  _setUsuario(context, user);
                                   return RegistrarPage();
                                 }
                               )
@@ -709,6 +711,8 @@ class EventPage extends StatelessWidget {
       Provider.of<Event>(context, listen: false)
           .askEvent(ip, facility_id, desde, hasta);
 
+  int _getAforo(List access_log) => Modelo.getAforo(access_log);
+
   @override
   Widget build(BuildContext context) {
     String ip = Provider.of<Ip>(context).ip;
@@ -716,6 +720,7 @@ class EventPage extends StatelessWidget {
     DateTime fechaDesde = Provider.of<FechaDesde>(context).fecha;
     DateTime fechaHasta = Provider.of<FechaHasta>(context).fecha;
     Map? event = Provider.of<Event>(context).event;
+
 
     return Scaffold(
         appBar: AppBar(
@@ -736,9 +741,7 @@ class EventPage extends StatelessWidget {
                         children: <Widget>[
                           Row(
                               children: <Widget>[
-                                const Text(" Inicio ",
-                                    textScaleFactor: 1.5
-                                ),
+                                const Text(" Inicio "),
                                 Container(
                                     decoration: ShapeDecoration(
                                       color: Colors.white,
@@ -747,10 +750,7 @@ class EventPage extends StatelessWidget {
                                         width: 1.0,
                                       ),
                                     ),
-                                    child: Text(
-                                        fechaToString(fechaDesde),
-                                        textScaleFactor: 1.5
-                                    )
+                                    child: Text(fechaToString(fechaDesde))
                                 ),
                                 IconButton(
                                     icon: const Icon(Icons.calendar_today),
@@ -767,9 +767,7 @@ class EventPage extends StatelessWidget {
                                     ),
                                   ),
                                   child: Text(
-                                      horaToString(fechaDesde),
-                                      textScaleFactor: 1.5
-                                  ),
+                                      horaToString(fechaDesde))
                                 ),
                                 IconButton(
                                     icon: const Icon(Icons.access_time),
@@ -781,9 +779,7 @@ class EventPage extends StatelessWidget {
                           ),
                           Row(
                             children: <Widget>[
-                              const Text(" Final  ",
-                                  textScaleFactor: 1.5
-                              ),
+                              const Text(" Final  "),
                               Container(
                                 decoration: ShapeDecoration(
                                   color: Colors.white,
@@ -792,10 +788,7 @@ class EventPage extends StatelessWidget {
                                     width: 1.0,
                                   ),
                                 ),
-                                child: Text(
-                                    fechaToString(fechaHasta),
-                                    textScaleFactor: 1.5
-                                ),
+                                child: Text(fechaToString(fechaHasta))
                               ),
                               IconButton(
                                   icon: const Icon(Icons.calendar_today),
@@ -811,10 +804,7 @@ class EventPage extends StatelessWidget {
                                       width: 1.0,
                                     ),
                                   ),
-                                  child: Text(
-                                      horaToString(fechaHasta),
-                                      textScaleFactor: 1.5
-                                  )
+                                  child: Text(horaToString(fechaHasta))
                               ),
                               IconButton(
                                   icon: const Icon(Icons.access_time),
@@ -848,77 +838,80 @@ class EventPage extends StatelessWidget {
 
                       if (fechaDesde.isAfter(now) || fechaHasta.isAfter(now)) {
                         return const Text(
-                            "Las fechas deben ser previas a la actual.",
-                            textScaleFactor: 1.5
+                            "Las fechas deben ser previas a la actual."
                         );
                       } else if (fechaDesde.isAfter(fechaHasta)) {
                         return const Text(
-                            "La fecha de inicio debe ser anterior a la final.",
-                            textScaleFactor: 1.5
+                            "La fecha de inicio debe ser anterior a la final."
                         );
                       } else if (accesos.isEmpty) {
-                        return const Text("No se obtuvieron resultados.",
-                            textScaleFactor: 1.5
+                        return const Text("No se obtuvieron resultados."
                         );
                       } else {
-                        return Expanded(child: SingleChildScrollView(
-                            child: DataTable(
-                              columns: const <DataColumn>[
-                                DataColumn(
-                                  label: Text(
-                                    'Tipo',
-                                    style: TextStyle(
-                                        fontStyle: FontStyle.italic),
-                                  ),
-                                ),
-                                DataColumn(
-                                  label: Text(
-                                    'Fecha',
-                                    style: TextStyle(
-                                        fontStyle: FontStyle.italic),
-                                  ),
-                                ),
-                                DataColumn(
-                                  label: Text(
-                                    'Hora',
-                                    style: TextStyle(
-                                        fontStyle: FontStyle.italic),
-                                  ),
-                                ),
-                                DataColumn(
-                                  label: Text(
-                                    'Usuario',
-                                    style: TextStyle(
-                                        fontStyle: FontStyle.italic),
-                                  ),
-                                ),
-                              ],
-                              rows: List<DataRow>.generate(
-                                  accesos.length,
-                                      (idx) {
-                                    Map acceso = accesos[idx] as Map;
-                                    Map user = acceso['user'] as Map;
-                                    return DataRow(
-                                        cells: <DataCell>[
-                                          DataCell(Text(acceso['type'])),
-                                          DataCell(
-                                              Text(acceso['timestamp']
-                                                  .toString().substring(
-                                                  0, 10))),
-                                          DataCell(
-                                              Text(acceso['timestamp']
-                                                  .toString().substring(
-                                                  11, 16))),
-                                          DataCell(Text(
-                                              '${user['name']} '
-                                                  '${user['surname']}')),
-                                        ]
-                                    );
-                                  }
-                              ),
-                            )
-                        )
-                        );
+                        return Expanded(child: Column(
+                            children: <Widget>[
+                              Text("Aforo ${_getAforo(accesos)} "
+                                  "${_getAforo(accesos)>1?
+                              "personas": "persona"}"),
+                          Expanded(child: SingleChildScrollView(
+                                  child: DataTable(
+                                    columns: const <DataColumn>[
+                                      DataColumn(
+                                        label: Text(
+                                          'Tipo',
+                                          style: TextStyle(
+                                              fontStyle: FontStyle.italic),
+                                        ),
+                                      ),
+                                      DataColumn(
+                                        label: Text(
+                                          'Fecha',
+                                          style: TextStyle(
+                                              fontStyle: FontStyle.italic),
+                                        ),
+                                      ),
+                                      DataColumn(
+                                        label: Text(
+                                          'Hora',
+                                          style: TextStyle(
+                                              fontStyle: FontStyle.italic),
+                                        ),
+                                      ),
+                                      DataColumn(
+                                        label: Text(
+                                          'Usuario',
+                                          style: TextStyle(
+                                              fontStyle: FontStyle.italic),
+                                        ),
+                                      ),
+                                    ],
+                                    rows: List<DataRow>.generate(
+                                        accesos.length,
+                                            (idx) {
+                                          Map acceso = accesos[idx] as Map;
+                                          Map user = acceso['user'] as Map;
+                                          return DataRow(
+                                              cells: <DataCell>[
+                                                DataCell(Text(acceso['type'])),
+                                                DataCell(
+                                                    Text(acceso['timestamp']
+                                                        .toString().substring(
+                                                        0, 10))),
+                                                DataCell(
+                                                    Text(acceso['timestamp']
+                                                        .toString().substring(
+                                                        11, 16))),
+                                                DataCell(Text(
+                                                    '${user['name']} '
+                                                        '${user['surname']}')),
+                                              ]
+                                          );
+                                        }
+                                    ),
+                                  )
+                              ))
+                            ]
+                        ));
                       }
                     }
                 ),
@@ -957,19 +950,22 @@ class RegistrarPage extends StatelessWidget {
     bool entra = Provider.of<Entra>(context).entra;
     double temperatura = Provider.of<Temperatura>(context).temperatura;
     Map? acceso = Provider.of<Acceso>(context).acceso;
-    String uuid = Provider.of<Usuario>(context).usuario!;
+    String usuario = Provider.of<Usuario>(context).usuario!;
+    List<String> list = usuario.split(",");
+    if(list.length != 3) {
+      throw Exception("Código QR inválido");
+    }
+    String name = list[0], surname = list[1], uuid = list[2];
     
     return Scaffold(
       resizeToAvoidBottomInset: false,
       appBar: AppBar(
-        title: Text('Registrar acceso'),
+        title: Text('Registrar acceso de ${name} ${surname}'),
       ),
       body: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: <Widget>[
-            Text("Introduzca los datos del acceso a ${facility['name']}",
-              textScaleFactor: 1.5,
-            ),
+            Text("Introduzca los datos del acceso a ${facility['name']}"),
             TextFormField(
               decoration: const InputDecoration(
                   hintText: "30.0",
@@ -1000,10 +996,7 @@ class RegistrarPage extends StatelessWidget {
                           width: 1.0,
                         ),
                       ),
-                      child: Text(
-                          fechaToString(fechaAcceso),
-                          textScaleFactor: 1.5
-                      )
+                      child: Text(fechaToString(fechaAcceso))
                   ),
                   IconButton(
                       icon: const Icon(Icons.calendar_today),
@@ -1019,10 +1012,7 @@ class RegistrarPage extends StatelessWidget {
                         width: 1.0,
                       ),
                     ),
-                    child: Text(
-                        horaToString(fechaAcceso),
-                        textScaleFactor: 1.5
-                    ),
+                    child: Text(horaToString(fechaAcceso)),
                   ),
                   IconButton(
                       icon: const Icon(Icons.access_time),
@@ -1039,10 +1029,7 @@ class RegistrarPage extends StatelessWidget {
                   value: entra,
                   onChanged: (bool value) => _setEntra(context, value)
               ),
-              Text(entra?
-                  "Entró" : "Salió",
-                textScaleFactor: 1.5,
-              )
+              Text(entra? "Entró" : "Salió")
             ],
             ),
             Center(
@@ -1081,7 +1068,6 @@ class RegistrarPage extends StatelessWidget {
                                     " Hora: ${acceso["timestamp"].substring(11,
                                     16)}\n"
                                     " Tipo: ${acceso["type"]}\n",
-                                textScaleFactor: 1.5,
                               )
                             ]
                         )
@@ -1104,22 +1090,34 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     String ip = Provider.of<Ip>(context).ip;
 
+    DateTime fechaHasta = DateTime.now();
+    int year = fechaHasta.year,
+        month = fechaHasta.month,
+        day = fechaHasta.day - 28;
+    if (day <= 0) {
+      day = day % 28 + 1;
+      if (month-- == 0) {
+        year--;
+        month = 12;
+      }
+    }
+
+    DateTime fechaDesde = DateTime(year, month, day,
+        fechaHasta.hour, fechaHasta.minute);
+
     return MultiProvider(
       providers: [
         ChangeNotifierProvider.value(
           value: Facilities(ip),
         ),
         ChangeNotifierProvider.value(
-          value: Facility(),
+          value: FechaDesde(fechaDesde),
         ),
         ChangeNotifierProvider.value(
-          value: FechaDesde(),
+          value: FechaHasta(fechaHasta),
         ),
         ChangeNotifierProvider.value(
-          value: FechaHasta(),
-        ),
-        ChangeNotifierProvider.value(
-          value: Event(ip, 0, DateTime.now(), DateTime.now()),
+          value: Event(ip, 0, fechaDesde, fechaHasta),
         ),
         ChangeNotifierProvider.value(
           value: Usuario(),
@@ -1128,7 +1126,7 @@ class MyApp extends StatelessWidget {
           value: Usuarios(ip, '', ''),
         ),
         ChangeNotifierProvider.value(
-          value: FechaAcceso(),
+          value: FechaAcceso(DateTime.now()),
         ),
         ChangeNotifierProvider.value(
           value: Entra(),
@@ -1153,6 +1151,9 @@ class MyApp extends StatelessWidget {
 void main() {
   runApp(MultiProvider(
       providers: [
+        ChangeNotifierProvider.value(
+          value: Facility(),
+        ),
         ChangeNotifierProvider.value(
           value: Ip(),
         ),
