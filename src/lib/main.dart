@@ -1,7 +1,8 @@
 import 'dart:convert';
-import 'package:analyzer/dart/element/type.dart';
+import 'package:analyzer/dart/analysis/context_builder.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 import 'dart:async';
 import 'package:flutter_barcode_scanner/flutter_barcode_scanner.dart';
@@ -38,7 +39,6 @@ class Modelo {
     var streamedResponse = await client.send(request);
     var dataAsString = await streamedResponse.stream.bytesToString();
     client.close();
-    await Future.delayed(Duration(seconds: 2));
     var dataAsMap = json.decode(dataAsString) as Map;
     return {"status": streamedResponse.statusCode, "data": dataAsMap["facilities"]};
   }
@@ -55,7 +55,6 @@ class Modelo {
     var streamedResponse = await client.send(request);
     var dataAsString = await streamedResponse.stream.bytesToString();
     client.close();
-    await Future.delayed(Duration(seconds: 2));
     var dataAsMap = json.decode(dataAsString) as Map;
     return {"status": streamedResponse.statusCode, "data": dataAsMap["access_log"]};
   }
@@ -145,15 +144,195 @@ class Modelo {
     var streamedResponse = await client.send(request);
     var dataAsString = await streamedResponse.stream.bytesToString();
     client.close();
-    await Future.delayed(Duration(seconds: 2));
     var dataAsMap = json.decode(dataAsString) as Map;
     return {"status": streamedResponse.statusCode, "data": dataAsMap["insert_access_log_one"]};
   }
 }
 
-enum Idiomas { esp, eng }
+String fechaToString(DateTime fecha) =>
+    fecha.toIso8601String().substring(0, 10);
+
+String horaToString(DateTime fecha) =>
+    fecha.toIso8601String().substring(11, 16);
+
+class Ip extends ChangeNotifier {
+  String _ip = "10.0.2.2";
+
+  String get ip => _ip;
+
+  set ip(String ip) {
+    _ip = ip;
+    notifyListeners();
+  }
+}
+
+class Facilities extends ChangeNotifier {
+  Map? _facilities;
+
+  Facilities(String ip) {
+    askFacilities(ip);
+  }
+
+  Map? get facilities => _facilities;
+
+  void askFacilities(String ip) async {
+    _facilities = null;
+    notifyListeners();
+    _facilities = await Modelo.getFacilities(ip);
+    notifyListeners();
+  }
+}
+
+abstract class Fecha extends ChangeNotifier {
+  DateTime _fecha = DateTime.now();
+
+  DateTime get fecha => _fecha;
+
+  void setFecha(BuildContext context) async {
+    DateTime? nuevaFecha = await showDatePicker(
+        context: context,
+        initialDate: _fecha,
+        firstDate: DateTime(2021),
+        lastDate: DateTime(2076)
+    );
+    if(nuevaFecha != null) {
+      _fecha = nuevaFecha;
+      notifyListeners();
+    }
+  }
+
+  void setHora(BuildContext context) async {
+    TimeOfDay? nuevaHora = await showTimePicker(
+        context: context,
+        initialTime: TimeOfDay(hour: _fecha.hour,
+            minute: _fecha.minute)
+    );
+    if(nuevaHora != null) {
+      _fecha = DateTime(_fecha.year, _fecha.month,
+          _fecha.day, nuevaHora.hour, nuevaHora.minute);
+      notifyListeners();
+    }
+  }
+}
+
+class FechaDesde extends Fecha {}
+class FechaHasta extends Fecha {}
+class FechaAcceso extends Fecha {}
+
+class Acceso extends ChangeNotifier {
+  Map? _acceso = {"status": 200, "data": {}};
+
+  Map? get acceso => _acceso;
+
+  void setAcceso(String ip, int facility_id, String user_id,
+      DateTime timestamp, String type, double temperature) async {
+    _acceso = null;
+    notifyListeners();
+    _acceso = await Modelo.postAccLog(ip, facility_id, user_id, timestamp, type, temperature);
+    notifyListeners();
+  }
+}
+
+class Usuarios extends ChangeNotifier {
+  Map? _usuarios = null;
+
+  Usuarios(String ip, String name, String surname) {
+    askUsuarios(ip, name, surname);
+  }
+
+  get usuarios => _usuarios;
+
+  void askUsuarios(String ip, String name, String surname) async {
+    _usuarios = null;
+    notifyListeners();
+    _usuarios = await Modelo.getUsers(ip, name, surname);
+    notifyListeners();
+  }
+}
+
+class Usuario extends ChangeNotifier {
+  String? _usuario;
+
+  String? get usuario => _usuario;
+
+  set usuario(String? uid){
+    _usuario = uid;
+    notifyListeners();
+  }
+}
+
+class Temperatura extends ChangeNotifier {
+  double _temperatura = 30.0;
+
+  double get temperatura => _temperatura;
+
+  set temperatura(double value) {
+    _temperatura = value;
+    notifyListeners();
+  }
+}
+
+class Entra extends ChangeNotifier {
+  bool _entra = true;
+
+  bool get entra => _entra;
+
+  set entra(bool value) {
+    _entra = value;
+    notifyListeners();
+  }
+}
+
+class Facility extends ChangeNotifier {
+  Map? _facility;
+
+  Map? get facility => _facility;
+
+  set facility(Map? value) {
+    _facility = value;
+  }
+
+
+}
+
+class Event extends ChangeNotifier {
+  Map? _event = null;
+
+  Event(String ip, int facility_id,
+      DateTime desde, DateTime hasta) {
+    askEvent(ip, facility_id, desde, hasta);
+  }
+
+  Map? get event => _event;
+
+  void askEvent(String ip, int facility_id,
+      DateTime desde, DateTime hasta) async {
+    _event = null;
+    notifyListeners();
+    _event = await Modelo.getEvent(ip, facility_id, desde, hasta);
+    notifyListeners();
+  }
+}
 
 // VISTA
+
+class Loader extends StatelessWidget {
+  Map? response;
+  Function builder;
+  Loader(this.response, this.builder, {Key? key}) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    if(response == null) {
+      return CircularProgressIndicator();
+    }
+    if(response!['status'] == 200) {
+      return builder(response!['data']);
+    }
+    return Alert("Error al conectar con la base de datos.\n"
+        "Código de estado: ${response!['status']}");
+  }
+}
 
 class Alert extends StatelessWidget {
   final String _text;
@@ -168,7 +347,11 @@ class Alert extends StatelessWidget {
         ElevatedButton(
           child: Text("OK"),
           onPressed: () {
-            Navigator.of(context).pop();
+            if(Navigator.of(context).canPop()) {
+              Navigator.of(context).pop();
+            } else {
+              SystemNavigator.pop();
+            }
           },
         ),
       ],
@@ -176,145 +359,109 @@ class Alert extends StatelessWidget {
   }
 }
 
-class Facilities extends ChangeNotifier {
-  Map? _facilities;
-
-  Facilities(String ip) {
-    askFacilities(ip);
-  }
-
-  Map? get getFacilities {
-    return _facilities;
-  }
-
-  void askFacilities(String ip) async {
-    _facilities = null;
-    notifyListeners();
-    _facilities = await Modelo.getFacilities(ip);
-    notifyListeners();
-  }
-}
-
 class FacilitiesPage extends StatelessWidget {
   FacilitiesPage({Key? key}) : super(key: key);
 
+  void _askFacilities(BuildContext context, String ip) =>
+      Provider.of<Facilities>(context, listen: false).askFacilities(ip);
+
+  void _setFacility(BuildContext context, Map facility) =>
+      Provider.of<Facility>(context, listen: false).facility = facility;
+
   @override
   Widget build(BuildContext context) {
+    String ip = Provider.of<Ip>(context).ip;
+    Map? facilities = Provider.of<Facilities>(context).facilities;
+
     return Scaffold(
-            appBar: AppBar(
-              title: const Text("Centros"),
+      appBar: AppBar(
+        title: const Text("Centros"),
+      ),
+      persistentFooterButtons: <Widget>[
+        IconButton(
+            icon: const Icon(Icons.sync),
+            iconSize: 20,
+            tooltip: 'Recargar',
+            onPressed: () {
+              _askFacilities(context, ip);
+            }
+        ),
+        IconButton(
+            icon: const Icon(Icons.settings),
+            iconSize: 20,
+            tooltip: 'Configuración',
+            onPressed: () =>
+                Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                        builder: (context) => ConfiguracionPage()
+                    )
+                )
+        ),
+      ],
+      body: Center(child: Column(
+          children: <Widget>[
+            Container(
+                decoration: ShapeDecoration(
+                  color: Colors.white,
+                  shape: Border.all(
+                    color: Colors.black,
+                    width: 1.0,
+                  ),
+                ),
+                child: const Text("Seleccione el centro para"
+                    " registrar u obtener su información:",
+                    textScaleFactor: 1.5
+                )
             ),
-            persistentFooterButtons: <Widget>[
-              IconButton(
-                  icon: const Icon(Icons.sync),
-                  iconSize: 20,
-                  tooltip: 'Recargar',
-                  onPressed: () {
-                    Provider.of<Facilities>(context, listen: false)
-                        .askFacilities(Provider.of<Ip>(context, listen: false).getIp);
-                  }
-              ),
-              IconButton(
-                  icon: const Icon(Icons.settings),
-                  iconSize: 20,
-                  tooltip: 'Configuración',
-                  onPressed: () =>
-                      Navigator.push(
+            Loader(
+                facilities,
+                (List facilities) => Expanded(child: ListView.builder(
+                  itemCount: facilities.length,
+                  itemBuilder: (context, index) {
+                    Map facility = facilities[index];
+
+                    return ListTile(
+                      title: Text(facility["name"]),
+                      onTap: () {
+                        Navigator.push(
                           context,
                           MaterialPageRoute(
-                              builder: (context) => ConfiguracionPage()
+                              builder: (context) {
+                                _setFacility(context, facility);
+                                return OpcionesPage();
+                            }
                           )
-                      )
-              ),
-            ],
-            body: Center(child: Column(
-                children: <Widget>[
-                  Container(
-                      decoration: ShapeDecoration(
-                        color: Colors.white,
-                        shape: Border.all(
-                          color: Colors.black,
-                          width: 1.0,
-                        ),
-                      ),
-                      child: const Text("Seleccione el centro para"
-                          " registrar u obtener su información:",
-                          textScaleFactor: 1.5
-                      )
-                  ),
-                  Loader(
-                      Provider.of<Facilities>(context).getFacilities,
-                      (List facilities) => Expanded(child: ListView.builder(
-                        itemCount: facilities.length,
-                        itemBuilder: (context, index) {
-                          Map facility = facilities[index];
-
-                          return ListTile(
-                            title: Text(facility["name"]),
-                            onTap: () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                    builder: (context) =>
-                                        OpcionesPage(facility: facility)),
-                              );
-                            },
-                          );
-                        },
-                      )
-                      )
-                  )
-                ]
+                        );
+                      },
+                    );
+                  },
+                )
+                )
             )
-            )
+          ]
+      )
+      )
     );
-  }
-}
-
-class Loader extends StatelessWidget {
-  Map? response;
-  Function builder;
-  Loader(this.response, this.builder, {Key? key}) : super(key: key);
-
-  @override
-  Widget build(BuildContext context) {
-    if(response == null) {
-      return CircularProgressIndicator();
-    }
-    if(response!['status'] == 200) {
-      return builder(response!['value']);
-    }
-    return Alert("Error al conectar con la base de datos.\n"
-        "Código de estado: ${response!['status']}");
-  }
-}
-
-
-class Ip extends ChangeNotifier {
-  String ip = "10.0.2.2";
-
-  String get getIp {
-    return ip;
-  }
-
-  set setIp(String ip) {
-    this.ip = ip;
-    notifyListeners();
   }
 }
 
 class ConfiguracionPage extends StatelessWidget {
   ConfiguracionPage({Key? key}): super(key: key);
 
+  void _setIp(BuildContext context, String ip) =>
+      Provider.of<Ip>(context, listen: false).ip = ip;
+
   @override
   Widget build(BuildContext context) {
+    String ip = Provider.of<Ip>(context).ip;
     return Scaffold(
         appBar: AppBar(
           title: Text('Configuración'),
         ),
         body: TextFormField(
           decoration: InputDecoration(
-              hintText: Provider.of<Ip>(context).getIp,
+              hintText: ip,
               labelText: "Introduzca la IP de la BBDD"),
           keyboardType: TextInputType.number,
           autovalidateMode: AutovalidateMode.onUserInteraction,
@@ -333,12 +480,12 @@ class ConfiguracionPage extends StatelessWidget {
                 return "Formato incorrecto";
               }
             }
+            print(value);
           },
           onFieldSubmitted: (value) {
-            if(value == null) return;
             value = value.trim();
             if (!value.isEmpty) {
-              Provider.of<Ip>(context, listen: false).setIp = value;
+              _setIp(context, value);
             }
           },
         )
@@ -347,9 +494,8 @@ class ConfiguracionPage extends StatelessWidget {
 }
 
 class OpcionesPage extends StatelessWidget {
-  Map facility;
-
-  OpcionesPage({Key? key, required this.facility}): super(key: key);
+  
+  const OpcionesPage({Key? key}): super(key: key);
 
   @override
   Widget build(BuildContext context) {
@@ -366,7 +512,7 @@ class OpcionesPage extends StatelessWidget {
               onPressed: () {
                 Navigator.push(
                  context,
-                  MaterialPageRoute(builder: (context) => IdentificarPage(facility: facility)),
+                  MaterialPageRoute(builder: (context) => IdentificarPage()),
                 );
               },
               child: const Text('Registrar',
@@ -378,7 +524,7 @@ class OpcionesPage extends StatelessWidget {
               onPressed: () {
                 Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (context) => EventPage(facility: facility)),
+                  MaterialPageRoute(builder: (context) => EventPage()),
                 );
               },
               child: const Text('Eventos',
@@ -392,53 +538,30 @@ class OpcionesPage extends StatelessWidget {
   }
 }
 
-class IdentificarPage extends StatefulWidget {
-  Map facility;
+class IdentificarPage extends StatelessWidget {
+  IdentificarPage({Key? key}): super(key: key);
 
-  IdentificarPage({Key? key, required this.facility}) : super(key: key);
-
-  @override
-  _IdentificarPageState createState() => _IdentificarPageState();
-
-}
-
-class _IdentificarPageState extends State<IdentificarPage> {
-  late Future<String> _futQr;
-
-  @override
-  void initState() {
-    super.initState();
-    _futQr = Future(() => '-1');
-  }
-
+  void _setUsuario(BuildContext context, String uuid) =>
+      Provider.of<Usuario>(context, listen: false).usuario = uuid;
 
   @override
   Widget build(BuildContext context) {
-    return MultiProvider(
-        providers: [
-        ChangeNotifierProvider.value(
-        value: Usuarios(Provider.of<Ip>(context, listen: false).getIp, '', ''),
-    ),
-    ],
-    child: Scaffold(
-        appBar: AppBar(title: const Text('Identificar usuario')),
-        body: Builder(builder: (BuildContext context)
-    {
-      return FutureBuilder(
-          future: _futQr,
-          builder: (BuildContext context, AsyncSnapshot<String> snapshot) {
-            if (snapshot.hasData &&
-                snapshot.data != null &&
-                snapshot.data != '-1') {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                    builder: (context) =>
-                        RegistrarPage(uuid: snapshot.data as String,
-                          facility: widget.facility,)
-                ),
-              );
-            }
+    String ip = Provider.of<Ip>(context).ip;
+
+        return MultiProvider(providers: [
+          ChangeNotifierProvider.value(
+            value: Usuarios(ip, '', ''),
+          ),
+          ChangeNotifierProvider.value(
+            value: FechaAcceso(),
+          ),
+          ChangeNotifierProvider.value(
+            value: Acceso(),
+          ),
+        ],
+        child: Scaffold(
+          appBar: AppBar(title: const Text('Identificar usuario')),
+          body: Builder(builder: (BuildContext context) {
             return Container(
                 alignment: Alignment.center,
                 child: Flex(
@@ -446,23 +569,31 @@ class _IdentificarPageState extends State<IdentificarPage> {
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: <Widget>[
                       ElevatedButton(
-                          onPressed: () =>
-                              setState(() =>
-                              _futQr = FlutterBarcodeScanner.scanBarcode(
-                                  '#ff6666', 'Cancel', true, ScanMode.QR)
-                              ),
+                          onPressed: () => FlutterBarcodeScanner.scanBarcode(
+                              '#ff6666', 'Cancel', true, ScanMode.QR).then(
+                                  (value) {
+                                if(value != '-1') {
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(builder: (context) {
+                                        _setUsuario(context, value);
+                                        return RegistrarPage();
+                                      }
+                                    ),
+                                  );
+                                }
+                              }
+                          ),
                           child: const Text('Con QR',
                               textScaleFactor: 1.5
                           )
                       ),
                       ElevatedButton(
-                          onPressed: () =>
-                              Navigator.push(
-                                  context,
-                                  MaterialPageRoute(builder: (context) =>
-                                      UsuariosPage(
-                                          facility: widget.facility))
-                              ),
+                          onPressed: () => Navigator.push(
+                              context,
+                              MaterialPageRoute(builder: (context) =>
+                                  UsuariosPage())
+                          ),
                           child: const Text('Manual',
                               textScaleFactor: 1.5
                           )
@@ -471,37 +602,28 @@ class _IdentificarPageState extends State<IdentificarPage> {
                 )
             );
           }
-      );
-    })));
-  }
-}
-
-class Usuarios extends ChangeNotifier {
-  Map? _usuarios = null;
-
-  Usuarios(String ip, String name, String surname) {
-    askUsuarios(ip, name, surname);
-  }
-
-  Map? get getUsuarios {
-    return _usuarios;
-  }
-
-  void askUsuarios(String ip, String name, String surname) async {
-    _usuarios = null;
-    notifyListeners();
-    _usuarios = await Modelo.getUsers(ip, name, surname);
-    notifyListeners();
+        )
+    ));
   }
 }
 
 class UsuariosPage extends StatelessWidget {
-  Map facility;
 
-  UsuariosPage({Key? key, required this.facility}): super(key: key);
+  UsuariosPage({Key? key}): super(key: key);
+
+  void _askUsuarios(BuildContext context, String ip,
+      String name, String surname) =>
+      Provider.of<Usuarios>(context, listen: false)
+          .askUsuarios(ip, name, surname);
+
+  void _setUsuario(BuildContext context, String uuid) =>
+      Provider.of<Usuario>(context, listen: false).usuario = uuid;
 
   @override
   Widget build(BuildContext context) {
+    String ip = Provider.of<Ip>(context).ip;
+    Map? usuarios = Provider.of<Usuarios>(context).usuarios;
+    
     return Scaffold(
         appBar: AppBar(
           title: const Text("Usuarios"),
@@ -522,46 +644,44 @@ class UsuariosPage extends StatelessWidget {
                     if (values.length > 1) {
                       apellido = values[1];
                     }
-                    Provider.of<Usuarios>(context, listen: false)
-                        .askUsuarios(Provider
-                        .of<Ip>(context, listen: false)
-                        .getIp, nombre, apellido);
+                    _askUsuarios(context, ip, nombre, apellido);
                   }
                 },
               ),
-              Loader(Provider
-                  .of<Usuarios>(context, listen: false)
-                  .getUsuarios,
-                      (List users) {
-                    if (users.isEmpty) {
-                      return const Text("No se encontraron coincidencias",
-                          textScaleFactor: 1.5
-                      );
-                    }
-
-                    return Expanded(child: ListView.builder(
-                      itemCount: users.length,
-                      itemBuilder: (context, index) {
-                        Map user = users[index];
-
-                        return ListTile(
-                          title: Text("${user["name"]} ${user["surname"]}\n"
-                              "nº: ${user["phone"]}"),
-                          onTap: () {
-                            Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (context) =>
-                                      RegistrarPage(uuid: user["uuid"],
-                                          facility: facility),
-                                )
-                            );
-                          },
-                        );
-                      },
-                    )
+              Loader(
+                usuarios,
+                (List users) {
+                  if (users.isEmpty) {
+                    return const Text("No se encontraron coincidencias",
+                        textScaleFactor: 1.5
                     );
-                  })
+                  }
+
+                  return Expanded(child: ListView.builder(
+                    itemCount: users.length,
+                    itemBuilder: (context, index) {
+                      Map user = users[index];
+
+                      return ListTile(
+                        title: Text("${user["name"]} ${user["surname"]}\n"
+                            "nº: ${user["phone"]}"),
+                        onTap: () {
+                          Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) {
+                                  _setUsuario(context, user["uuid"]);
+                                  return RegistrarPage();
+                                }
+                              )
+                          );
+                        },
+                      );
+                    },
+                  )
+                  );
+                }
+              )
             ]
         )
         )
@@ -569,225 +689,57 @@ class UsuariosPage extends StatelessWidget {
   }
 }
 
-class Event extends ChangeNotifier {
-  Map? event = null;
-
-  Event(String ip, int facility_id,
-      DateTime desde, DateTime hasta) {
-    askEvent(ip, facility_id, desde, hasta);
-  }
-
-  Map? get getEvent => event;
-
-  void askEvent(String ip, int facility_id,
-      DateTime desde, DateTime hasta) async {
-    event = null;
-    notifyListeners();
-    event = await Modelo.getEvent(ip, facility_id, desde, hasta);
-    notifyListeners();
-  }
-}
-
-abstract class FechaHora extends ChangeNotifier {
-  DateTime fecha = DateTime.now();
-  TimeOfDay hora = TimeOfDay.now();
-
-  void setFecha(BuildContext context) async {
-    DateTime? nuevaFecha = await showDatePicker(
-        context: context,
-        initialDate: fecha,
-        firstDate: DateTime(2021),
-        lastDate: DateTime(2076)
-    );
-    if(nuevaFecha != null) {
-      fecha = nuevaFecha;
-      notifyListeners();
-    }
-  }
-
-  void setHora(BuildContext context) async {
-    TimeOfDay? nuevaHora = await showTimePicker(
-        context: context,
-        initialTime: hora
-    );
-    if(nuevaHora != null) {
-      hora = nuevaHora;
-      notifyListeners();
-    }
-  }
-
-  String fechaToString() =>
-      fecha.toIso8601String().substring(0, 10);
-
-  String horaToString() =>
-      hora.toString();
-}
-
-class FechaHoraDesde extends FechaHora {}
-class FechaHoraHasta extends FechaHora {}
-
 class EventPage extends StatelessWidget {
-  Map facility;
+  EventPage({Key? key}) : super(key: key);
 
-  EventPage({Key? key, required this.facility}) : super(key: key);
-  late DateTime fechaDesde;
-  late DateTime fechaHasta;
-  late Future<DateTime?> _futFechaDesde;
-  late Future<DateTime?> _futFechaHasta;
-  late Future<TimeOfDay?> _futTimeDesde;
-  late Future<TimeOfDay?> _futTimeHasta;
+  void _setFechaDesde(BuildContext context) =>
+      Provider.of<FechaDesde>(context, listen: false).setFecha(context);
 
-  @override
-  initState() {
-    super.initState();
-    fechaHasta = DateTime.now();
-    int year = fechaHasta.year,
-        month = fechaHasta.month,
-        day = fechaHasta.day - 28;
-    if (day <= 0) {
-      day = day % 28 + 1;
-      if (month-- == 0) {
-        year--;
-        month = 12;
-      }
-    }
-    fechaDesde = DateTime(year, month, day,
-        fechaHasta.hour, fechaHasta.minute);
+  void _setHoraDesde(BuildContext context) =>
+      Provider.of<FechaDesde>(context, listen: false).setHora(context);
 
-    _futAccLog = Modelo.getEvent(
-        Provider.of<Ip>(context, listen: false).getIp,
-        widget.facility['id'], fechaDesde, fechaHasta);
+  void _setFechaHasta(BuildContext context) =>
+      Provider.of<FechaHasta>(context, listen: false).setFecha(context);
 
-    _futFechaDesde = Future(() => fechaDesde);
-    _futFechaHasta = Future(() => fechaHasta);
-    _futTimeDesde = Future(() =>
-        TimeOfDay(hour: fechaDesde.hour, minute: fechaDesde.minute));
-    _futTimeHasta = Future(() =>
-        TimeOfDay(hour: fechaHasta.hour, minute: fechaHasta.minute));
-  }
+  void _setHoraHasta(BuildContext context) =>
+      Provider.of<FechaHasta>(context, listen: false).setHora(context);
+
+  void _askEvent(BuildContext context, String ip,
+      int facility_id, DateTime desde, DateTime hasta) =>
+      Provider.of<Event>(context, listen: false)
+          .askEvent(ip, facility_id, desde, hasta);
 
   @override
   Widget build(BuildContext context) {
+    String ip = Provider.of<Ip>(context).ip;
+    Map facility = Provider.of<Facility>(context).facility!;
+    DateTime fechaDesde = Provider.of<FechaDesde>(context).fecha;
+    DateTime fechaHasta = Provider.of<FechaHasta>(context).fecha;
+    Map? event = Provider.of<Event>(context).event;
+
     return Scaffold(
-      appBar: AppBar(
-        title: const Text("Eventos"),
-      ),
-      body: Center(
-        child: Column(
-            children: <Widget>[
-              Container(
-                  decoration: ShapeDecoration(
-                    color: Colors.white,
-                    shape: Border.all(
-                      color: Colors.black,
-                      width: 1.0,
+        appBar: AppBar(
+          title: const Text("Eventos"),
+        ),
+        body: Center(
+          child: Column(
+              children: <Widget>[
+                Container(
+                    decoration: ShapeDecoration(
+                      color: Colors.white,
+                      shape: Border.all(
+                        color: Colors.black,
+                        width: 1.0,
+                      ),
                     ),
-                  ),
-                  child: Column(
-                      children: <Widget>[
-                        Row(
-                            children: <Widget>[
-                              const Text(" Inicio ",
-                                  textScaleFactor: 1.5
-                              ),
-                              FutureBuilder<DateTime?>(
-                                  future: _futFechaDesde,
-                                  builder: (BuildContext context, AsyncSnapshot<DateTime?> snapshot) {
-                                    DateTime? newFecha = snapshot.data;
-                                    if (newFecha != null) {
-                                      fechaDesde = newFecha;
-                                    }
-
-                                    return Container(
-                                        decoration: ShapeDecoration(
-                                          color: Colors.white,
-                                          shape: Border.all(
-                                            color: Colors.black,
-                                            width: 1.0,
-                                          ),
-                                        ),
-                                        child: Text(dateToString(fechaDesde),
-                                            textScaleFactor: 1.5
-                                        )
-                                    );
-                                  }
-                              ),
-                              IconButton(
-                                  icon: const Icon(Icons.calendar_today),
-                                  iconSize: 20,
-                                  tooltip: 'Austar la fecha de inicio del evento',
-                                  onPressed: () => setState(() {
-                                    _futFechaDesde = showDatePicker(
-                                        context: context,
-                                        initialDate: fechaDesde,
-                                        firstDate: DateTime(2021),
-                                        lastDate: DateTime(2076)
-                                    );
-                                  }
-                                  )
-                              ),
-                              FutureBuilder<TimeOfDay?>(
-                                  future: _futTimeDesde,
-                                  builder: (BuildContext context, AsyncSnapshot<TimeOfDay?> snapshot) {
-                                    TimeOfDay? newTime = snapshot.data;
-
-                                    if(newTime != null) {
-                                      fechaDesde = DateTime(
-                                          fechaDesde.year,
-                                          fechaDesde.month,
-                                          fechaDesde.day,
-                                          newTime.hour,
-                                          newTime.minute
-                                      );
-                                    }
-
-                                    return Container(
-                                      decoration: ShapeDecoration(
-                                        color: Colors.white,
-                                        shape: Border.all(
-                                          color: Colors.black,
-                                          width: 1.0,
-                                        ),
-                                      ),
-                                      child: Text(timeToString(fechaDesde),
-                                          textScaleFactor: 1.5
-                                      ),
-                                    );
-                                  }
-                              ),
-                              IconButton(
-                                  icon: const Icon(Icons.access_time),
-                                  iconSize: 20,
-                                  tooltip: 'Buscar',
-                                  onPressed: () => setState((){
-                                    _futTimeDesde = showTimePicker(
-                                        context: context,
-                                        initialTime: TimeOfDay(
-                                            hour: fechaDesde.hour,
-                                            minute: fechaDesde.minute
-                                        )
-                                    );
-                                  },
-                                  )
-                              )
-                            ]
-                        ),
-                        Row(
-                          children: <Widget>[
-                            const Text(" Final  ",
-                                textScaleFactor: 1.5
-                            ),
-                            FutureBuilder<DateTime?>(
-                                future: _futFechaHasta,
-                                builder: (BuildContext context, AsyncSnapshot<DateTime?> snapshot) {
-                                  DateTime? newFecha = snapshot.data;
-                                  if(newFecha != null) {
-                                    //setState(() =>
-                                    fechaHasta = newFecha as DateTime;
-                                    //);
-                                  }
-
-                                  return Container(
+                    child: Column(
+                        children: <Widget>[
+                          Row(
+                              children: <Widget>[
+                                const Text(" Inicio ",
+                                    textScaleFactor: 1.5
+                                ),
+                                Container(
                                     decoration: ShapeDecoration(
                                       color: Colors.white,
                                       shape: Border.all(
@@ -795,309 +747,322 @@ class EventPage extends StatelessWidget {
                                         width: 1.0,
                                       ),
                                     ),
-                                    child: Text(dateToString(fechaHasta),
+                                    child: Text(
+                                        fechaToString(fechaDesde),
                                         textScaleFactor: 1.5
+                                    )
+                                ),
+                                IconButton(
+                                    icon: const Icon(Icons.calendar_today),
+                                    iconSize: 20,
+                                    tooltip: 'Austar la fecha de inicio del evento',
+                                    onPressed: () => _setFechaDesde(context)
+                                ),
+                                Container(
+                                  decoration: ShapeDecoration(
+                                    color: Colors.white,
+                                    shape: Border.all(
+                                      color: Colors.black,
+                                      width: 1.0,
                                     ),
-                                  );
-                                }
-                            ),
-                            IconButton(
-                                icon: const Icon(Icons.calendar_today),
-                                iconSize: 20,
-                                tooltip: 'Austar la fecha de fin del evento',
-                                onPressed: () => setState(() {
-                                  _futFechaHasta = showDatePicker(
-                                      context: context,
-                                      initialDate: fechaHasta,
-                                      firstDate: DateTime(2021),
-                                      lastDate: DateTime(2076)
-                                  );
-                                }
+                                  ),
+                                  child: Text(
+                                      horaToString(fechaDesde),
+                                      textScaleFactor: 1.5
+                                  ),
+                                ),
+                                IconButton(
+                                    icon: const Icon(Icons.access_time),
+                                    iconSize: 20,
+                                    tooltip: 'Ajustar la hora de inicio del evento',
+                                    onPressed: () => _setHoraDesde(context)
                                 )
-                            ),
-                            FutureBuilder<TimeOfDay?>(
-                                future: _futTimeHasta,
-                                builder: (BuildContext context, AsyncSnapshot<TimeOfDay?> snapshot) {
-                                  TimeOfDay? newTime = snapshot.data;
+                              ]
+                          ),
+                          Row(
+                            children: <Widget>[
+                              const Text(" Final  ",
+                                  textScaleFactor: 1.5
+                              ),
+                              Container(
+                                decoration: ShapeDecoration(
+                                  color: Colors.white,
+                                  shape: Border.all(
+                                    color: Colors.black,
+                                    width: 1.0,
+                                  ),
+                                ),
+                                child: Text(
+                                    fechaToString(fechaHasta),
+                                    textScaleFactor: 1.5
+                                ),
+                              ),
+                              IconButton(
+                                  icon: const Icon(Icons.calendar_today),
+                                  iconSize: 20,
+                                  tooltip: 'Austar la fecha de fin del evento',
+                                  onPressed: () => _setFechaHasta(context)
+                              ),
+                              Container(
+                                  decoration: ShapeDecoration(
+                                    color: Colors.white,
+                                    shape: Border.all(
+                                      color: Colors.black,
+                                      width: 1.0,
+                                    ),
+                                  ),
+                                  child: Text(
+                                      horaToString(fechaHasta),
+                                      textScaleFactor: 1.5
+                                  )
+                              ),
+                              IconButton(
+                                  icon: const Icon(Icons.access_time),
+                                  iconSize: 20,
+                                  tooltip: 'Austar la hora de fin del evento',
+                                  onPressed: () => _setHoraHasta(context)
+                              )
+                            ],
+                          ),
+                          IconButton(
+                              alignment: Alignment.topRight,
+                              icon: const Icon(Icons.search),
+                              iconSize: 20,
+                              tooltip: 'Buscar',
+                              onPressed: () =>
+                                  _askEvent(
+                                      context,
+                                      ip,
+                                      facility['id'],
+                                      fechaDesde,
+                                      fechaHasta
+                                  )
+                          ),
+                        ]
+                    )
+                ),
+                Loader(
+                    event,
+                        (List accesos) {
+                      DateTime now = DateTime.now();
 
-                                  if(newTime != null) {
-                                    //setState(() =>
-                                    fechaHasta = DateTime(
-                                        fechaHasta.year,
-                                        fechaHasta.month,
-                                        fechaHasta.day,
-                                        newTime.hour,
-                                        newTime.minute
-                                      //)
+                      if (fechaDesde.isAfter(now) || fechaHasta.isAfter(now)) {
+                        return const Text(
+                            "Las fechas deben ser previas a la actual.",
+                            textScaleFactor: 1.5
+                        );
+                      } else if (fechaDesde.isAfter(fechaHasta)) {
+                        return const Text(
+                            "La fecha de inicio debe ser anterior a la final.",
+                            textScaleFactor: 1.5
+                        );
+                      } else if (accesos.isEmpty) {
+                        return const Text("No se obtuvieron resultados.",
+                            textScaleFactor: 1.5
+                        );
+                      } else {
+                        return Expanded(child: SingleChildScrollView(
+                            child: DataTable(
+                              columns: const <DataColumn>[
+                                DataColumn(
+                                  label: Text(
+                                    'Tipo',
+                                    style: TextStyle(
+                                        fontStyle: FontStyle.italic),
+                                  ),
+                                ),
+                                DataColumn(
+                                  label: Text(
+                                    'Fecha',
+                                    style: TextStyle(
+                                        fontStyle: FontStyle.italic),
+                                  ),
+                                ),
+                                DataColumn(
+                                  label: Text(
+                                    'Hora',
+                                    style: TextStyle(
+                                        fontStyle: FontStyle.italic),
+                                  ),
+                                ),
+                                DataColumn(
+                                  label: Text(
+                                    'Usuario',
+                                    style: TextStyle(
+                                        fontStyle: FontStyle.italic),
+                                  ),
+                                ),
+                              ],
+                              rows: List<DataRow>.generate(
+                                  accesos.length,
+                                      (idx) {
+                                    Map acceso = accesos[idx] as Map;
+                                    Map user = acceso['user'] as Map;
+                                    return DataRow(
+                                        cells: <DataCell>[
+                                          DataCell(Text(acceso['type'])),
+                                          DataCell(
+                                              Text(acceso['timestamp']
+                                                  .toString().substring(
+                                                  0, 10))),
+                                          DataCell(
+                                              Text(acceso['timestamp']
+                                                  .toString().substring(
+                                                  11, 16))),
+                                          DataCell(Text(
+                                              '${user['name']} '
+                                                  '${user['surname']}')),
+                                        ]
                                     );
                                   }
-
-                                  return Container(
-                                      decoration: ShapeDecoration(
-                                        color: Colors.white,
-                                        shape: Border.all(
-                                          color: Colors.black,
-                                          width: 1.0,
-                                        ),
-                                      ),
-                                      child: Text(timeToString(fechaHasta),
-                                          textScaleFactor: 1.5
-                                      )
-                                  );
-                                }
-                            ),
-                            IconButton(
-                                icon: const Icon(Icons.access_time),
-                                iconSize: 20,
-                                tooltip: 'Austar la hora de fin del evento',
-                                onPressed: () => setState(() {
-                                  _futTimeHasta = showTimePicker(
-                                    context: context,
-                                    initialTime: TimeOfDay(
-                                        hour: fechaHasta.hour,
-                                        minute: fechaHasta.minute
-                                    ),
-                                  );
-                                }
-                                )
+                              ),
                             )
-                          ],
-                        ),
-                        IconButton(
-                            alignment: Alignment.topRight,
-                            icon: const Icon(Icons.search),
-                            iconSize: 20,
-                            tooltip: 'Austar la fecha de inicio del evento',
-                            onPressed: () => setState(() {
-                              _futAccLog = Modelo.getEvent(
-                                  Provider.of<Ip>(context, listen: false).getIp,
-                                  widget.facility['id'],
-                                  fechaDesde, fechaHasta);
-                            })
-                        ),
-                      ]
-                  )
-              ),
-              FutureBuilder<List>(
-                future: _futAccLog,
-                builder: (BuildContext context, AsyncSnapshot<List> snapshot) {
-                  switch (snapshot.connectionState) {
-                    case ConnectionState.waiting:
-                      return CircularProgressIndicator();
-                    case ConnectionState.done:
-                      if (snapshot.hasError) {
-                        return Alert("Fallo al conectar con la base de datos");
-                      } else {
-                        List accesos = snapshot.data as List;
-                        DateTime now = DateTime.now();
-
-                        if(fechaDesde.isAfter(now) || fechaHasta.isAfter(now)){
-                          return const Text("Las fechas deben ser previas a la actual.",
-                              textScaleFactor: 1.5
-                          );
-                        } else if(fechaDesde.isAfter(fechaHasta)) {
-                          return const Text("La fecha de inicio debe ser anterior a la final.",
-                              textScaleFactor: 1.5
-                          );
-                        } else if(accesos.isEmpty){
-                          return const Text("No se obtuvieron resultados.",
-                              textScaleFactor: 1.5
-                          );
-                        } else {
-                          return Expanded(child: SingleChildScrollView(
-                              child: DataTable(
-                                columns: const <DataColumn>[
-                                  DataColumn(
-                                    label: Text(
-                                      'Tipo',
-                                      style: TextStyle(
-                                          fontStyle: FontStyle.italic),
-                                    ),
-                                  ),
-                                  DataColumn(
-                                    label: Text(
-                                      'Fecha',
-                                      style: TextStyle(
-                                          fontStyle: FontStyle.italic),
-                                    ),
-                                  ),
-                                  DataColumn(
-                                    label: Text(
-                                      'Hora',
-                                      style: TextStyle(
-                                          fontStyle: FontStyle.italic),
-                                    ),
-                                  ),
-                                  DataColumn(
-                                    label: Text(
-                                      'Usuario',
-                                      style: TextStyle(
-                                          fontStyle: FontStyle.italic),
-                                    ),
-                                  ),
-                                ],
-                                rows: List<DataRow>.generate(
-                                    accesos.length,
-                                        (idx) {
-                                      Map acceso = accesos[idx] as Map;
-                                      Map user = acceso['user'] as Map;
-                                      return DataRow(
-                                          cells: <DataCell>[
-                                            DataCell(Text(acceso['type'])),
-                                            DataCell(
-                                                Text(acceso['timestamp']
-                                                    .toString().substring(
-                                                    0, 10))),
-                                            DataCell(
-                                                Text(acceso['timestamp']
-                                                    .toString().substring(
-                                                    11, 16))),
-                                            DataCell(Text(
-                                                '${user['name']} '
-                                                    '${user['surname']}')),
-                                          ]
-                                      );
-                                    }
-                                ),
-                              )
-                          )
-                          );
-                        }
+                        )
+                        );
                       }
-                    default:
-                      return Alert("Error: ${snapshot.connectionState}");
-                  }
-                },
-              ),
-            ]
-        ),
-    ));
+                    }
+                ),
+              ]
+          ),
+        ));
   }
 }
 
-class RegistrarPage extends StatefulWidget {
-  final String uuid;
-  final Map facility;
+class RegistrarPage extends StatelessWidget {
+  const RegistrarPage({Key? key}): super(key: key);
 
-  const RegistrarPage({required this.uuid, required this.facility, Key? key})
-      : super(key: key);
+  void _setTemperatura(BuildContext context, double value) =>
+      Provider.of<Temperatura>(context, listen: false).temperatura = value;
 
-  @override
-  _RegistrarPageState createState() => _RegistrarPageState();
+  void _setFechaAcceso(BuildContext context) =>
+      Provider.of<FechaAcceso>(context, listen: false).setFecha(context);
 
-}
+  void _setHoraAcceso(BuildContext context) =>
+      Provider.of<FechaAcceso>(context, listen: false).setHora(context);
 
-class _RegistrarPageState extends State<RegistrarPage> {
-  late Future<DateTime?> _futFecha;
-  late Future<TimeOfDay?> _futTime;
-  late Future<Map> _futAcc;
-  late double temperatura;
-  late DateTime fecha;
-  late bool entra;
+  void _setEntra(BuildContext context, bool entra) =>
+      Provider.of<Entra>(context, listen: false).entra = entra;
 
-  @override
-  void initState() {
-    // TODO: implement initState
-    super.initState();
-    temperatura = 30.0;
-    fecha = DateTime.now();
-    entra = true;
+  void _setAcceso(BuildContext context, String ip, int facility_id,
+      String user_id, DateTime timestamp, String type, double temperature) =>
+      Provider.of<Acceso>(context, listen: false)
+          .setAcceso(ip, facility_id, user_id, timestamp, type, temperature);
 
-    _futFecha = Future(() => fecha);
-    _futTime = Future(() =>
-        TimeOfDay(hour: fecha.hour, minute: fecha.minute));
-    _futAcc = Future(() => {});
-  }
 
   @override
   Widget build(BuildContext context) {
+    String ip = Provider.of<Ip>(context).ip;
+    Map facility = Provider.of<Facility>(context).facility!;
+    DateTime fechaAcceso = Provider.of<FechaAcceso>(context).fecha;
+    bool entra = Provider.of<Entra>(context).entra;
+    double temperatura = Provider.of<Temperatura>(context).temperatura;
+    Map? acceso = Provider.of<Acceso>(context).acceso;
+    String uuid = Provider.of<Usuario>(context).usuario!;
+    
     return Scaffold(
       resizeToAvoidBottomInset: false,
       appBar: AppBar(
-          title: Text('Registrar acceso'),
-        ),
-        body: Column(
+        title: Text('Registrar acceso'),
+      ),
+      body: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: <Widget>[
-          Text("Introduzca los datos del acceso a ${widget.facility['name']}",
+            Text("Introduzca los datos del acceso a ${facility['name']}",
               textScaleFactor: 1.5,
-          ),
-          TextFormField(
-            decoration: const InputDecoration(
-                hintText: "30.0",
-                labelText: "Introduzca la temperatura del usuario"),
-            keyboardType: TextInputType.number,
-            autovalidateMode: AutovalidateMode.onUserInteraction,
-            validator: (value) {
-                if(value == null || double.tryParse(value) == null){
+            ),
+            TextFormField(
+              decoration: const InputDecoration(
+                  hintText: "30.0",
+                  labelText: "Introduzca la temperatura del usuario"),
+              keyboardType: TextInputType.number,
+              autovalidateMode: AutovalidateMode.onUserInteraction,
+              validator: (value) {
+                if (value == null || double.tryParse(value) == null) {
                   return "Formato incorrecto";
                 }
               },
-            onFieldSubmitted: (value) {
-              value = value.trim();
-              if (!value.isEmpty) {
-                setState(() {
-                  temperatura = double.parse(value);
-                });
-              }
-            },
-          ),
-          const Text("Introduzca la fecha del acceso",
-          ),
-          Row(
-              children: <Widget>[
-                FutureBuilder<DateTime?>(
-                    future: _futFecha,
-                    builder: (BuildContext context, AsyncSnapshot<DateTime?> snapshot) {
-                      DateTime? newFecha = snapshot.data;
-                      if (newFecha != null) {
-                        fecha = newFecha;
-                      }
-
-                      return Container(
-                          decoration: ShapeDecoration(
-                            color: Colors.white,
-                            shape: Border.all(
-                              color: Colors.black,
-                              width: 1.0,
-                            ),
-                          ),
-                          child: Text(dateToString(fecha),
-                              textScaleFactor: 1.5
-                          )
-                      );
-                    }
-                ),
-                IconButton(
-                    icon: const Icon(Icons.calendar_today),
-                    iconSize: 20,
-                    tooltip: 'Austar la fecha del acceso',
-                    onPressed: () => setState(() {
-                      _futFecha = showDatePicker(
-                          context: context,
-                          initialDate: fecha,
-                          firstDate: DateTime(2021),
-                          lastDate: DateTime(2076)
-                      );
-                    }
-                    )
-                ),
-                FutureBuilder<TimeOfDay?>(
-                    future: _futTime,
-                    builder: (BuildContext context, AsyncSnapshot<TimeOfDay?> snapshot) {
-                      TimeOfDay? newTime = snapshot.data;
-
-                      if(newTime != null) {
-                        fecha = DateTime(
-                            fecha.year,
-                            fecha.month,
-                            fecha.day,
-                            newTime.hour,
-                            newTime.minute
-                        );
-                      }
-
-                      return Container(
+              onFieldSubmitted: (value) {
+                value = value.trim();
+                if (!value.isEmpty) {
+                  _setTemperatura(context, double.parse(value));
+                }
+              },
+            ),
+            const Text("Introduzca la fecha del acceso",
+            ),
+            Row(
+                children: <Widget>[
+                  Container(
+                      decoration: ShapeDecoration(
+                        color: Colors.white,
+                        shape: Border.all(
+                          color: Colors.black,
+                          width: 1.0,
+                        ),
+                      ),
+                      child: Text(
+                          fechaToString(fechaAcceso),
+                          textScaleFactor: 1.5
+                      )
+                  ),
+                  IconButton(
+                      icon: const Icon(Icons.calendar_today),
+                      iconSize: 20,
+                      tooltip: 'Austar la fecha del acceso',
+                      onPressed: () => _setFechaAcceso(context)
+                  ),
+                  Container(
+                    decoration: ShapeDecoration(
+                      color: Colors.white,
+                      shape: Border.all(
+                        color: Colors.black,
+                        width: 1.0,
+                      ),
+                    ),
+                    child: Text(
+                        horaToString(fechaAcceso),
+                        textScaleFactor: 1.5
+                    ),
+                  ),
+                  IconButton(
+                      icon: const Icon(Icons.access_time),
+                      iconSize: 20,
+                      tooltip: 'Austar la hora del acceso',
+                      onPressed: () => _setHoraAcceso(context)
+                  )
+                ]
+            ),
+            const Text("Indique si ha entrado o salido",
+            ),
+            Row(children: <Widget>[
+              Switch(
+                  value: entra,
+                  onChanged: (bool value) => _setEntra(context, value)
+              ),
+              Text(entra?
+                  "Entró" : "Salió",
+                textScaleFactor: 1.5,
+              )
+            ],
+            ),
+            Center(
+              child: IconButton(
+                  alignment: Alignment.topRight,
+                  icon: const Icon(Icons.check_circle_outline),
+                  iconSize: 50,
+                  tooltip: 'Austar la fecha de inicio del evento',
+                  onPressed: () =>
+                      _setAcceso(context, ip, facility["id"], uuid,
+                          fechaAcceso, entra? "IN": "OUT", temperatura)
+              ),
+            ),
+            Center(child: Loader(
+                acceso,
+                (Map acceso) {
+                  if (acceso.isEmpty) {
+                    return const Text("No se ha registrado nada");
+                  } else {
+                    return Container(
                         decoration: ShapeDecoration(
                           color: Colors.white,
                           shape: Border.all(
@@ -1105,109 +1070,31 @@ class _RegistrarPageState extends State<RegistrarPage> {
                             width: 1.0,
                           ),
                         ),
-                        child: Text(timeToString(fecha),
-                            textScaleFactor: 1.5
-                        ),
-                      );
-                    }
-                ),
-                IconButton(
-                    icon: const Icon(Icons.access_time),
-                    iconSize: 20,
-                    tooltip: 'Austar la hora del acceso',
-                    onPressed: () => setState((){
-                      _futTime = showTimePicker(
-                          context: context,
-                          initialTime: TimeOfDay(
-                              hour: fecha.hour,
-                              minute: fecha.minute
-                          )
-                      );
-                    },
-                    )
-                )
-              ]
-          ),
-          const Text("Indique si ha entrado o salido",
-          ),
-          Row(children: <Widget>[
-            Switch(
-                value: entra,
-                onChanged: (value) => setState(() => entra = value)
-            ),
-            Text(entra? "Entró": "Salió",
-              textScaleFactor: 1.5,
-            )
-          ],
-          ),
-          Center(
-            child: IconButton(
-                alignment: Alignment.topRight,
-                icon: const Icon(Icons.check_circle_outline),
-                iconSize: 50,
-                tooltip: 'Austar la fecha de inicio del evento',
-                onPressed: () => setState(() {
-                  _futAcc = Modelo.postAccLog(
-                      Provider.of<Ip>(context, listen: false).getIp,
-                      widget.facility['id'],
-                      widget.uuid,
-                      fecha,
-                      entra? 'IN': 'OUT',
-                      temperatura);
-                })
-            ),
-          ),
-          Center(child: FutureBuilder<Map>(
-              future: _futAcc,
-              builder: (BuildContext context, AsyncSnapshot<Map> snapshot) {
-                switch (snapshot.connectionState) {
-                  case ConnectionState.waiting:
-                    return CircularProgressIndicator();
-                  case ConnectionState.done:
-                    if (snapshot.hasError) {
-                      return Alert("Fallo al conectar con la base de datos");
-                    } else {
-                      Map acceso = snapshot.data as Map;
-
-                      if (acceso.isEmpty) {
-                        return const Text("No se ha registrado nada");
-                      } else {
-                        return Container(
-                            decoration: ShapeDecoration(
-                              color: Colors.white,
-                              shape: Border.all(
-                                color: Colors.black,
-                                width: 1.0,
-                              ),
-                            ),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  "\n Se ha registrado correctamente la\n"
-                                  " siguiente información del usuario: \n\n"
-                                  " Fecha: ${acceso["timestamp"].substring(0, 10)}\n"
-                                  " Hora: ${acceso["timestamp"].substring(11, 16)}\n"
-                                  " Tipo: ${acceso["type"]}\n",
-                                  textScaleFactor: 1.5,
-                                )
-                              ]
-                            )
-                        );
-                      }
-                    }
-                  default:
-                    return Alert("Error: ${snapshot.connectionState}");
+                        child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                "\n Se ha registrado correctamente la\n"
+                                    " siguiente información del usuario: \n\n"
+                                    " Fecha: ${acceso["timestamp"].substring(0,
+                                    10)}\n"
+                                    " Hora: ${acceso["timestamp"].substring(11,
+                                    16)}\n"
+                                    " Tipo: ${acceso["type"]}\n",
+                                textScaleFactor: 1.5,
+                              )
+                            ]
+                        )
+                    );
+                  }
                 }
-              },
             ),
-          )
-        ]
-        ),
+            )
+          ]
+      ),
     );
   }
 }
-
 
 class MyApp extends StatelessWidget {
   const MyApp({Key? key}) : super(key: key);
@@ -1215,93 +1102,53 @@ class MyApp extends StatelessWidget {
   // This widget is the root of your application.
   @override
   Widget build(BuildContext context) {
-    return MultiProvider(
-        providers: [
-        ChangeNotifierProvider.value(
-        value: Facilities(Provider.of<Ip>(context, listen: false).getIp),
-    ),
-    ],
-    child: MaterialApp(
-      title: 'Flutter Demo',
-      theme: ThemeData(primarySwatch: Colors.blue,),
-      home: FacilitiesPage(),
-      debugShowCheckedModeBanner: false,
-    ));
-  }
-}
+    String ip = Provider.of<Ip>(context).ip;
 
-class Counter extends ChangeNotifier {
-  var _count = 0;
-  int get getCounter {
-    return _count;
-  }
-
-  void incrementCounter() async {
-    await Future.delayed(Duration(seconds: 2));
-    _count += 1;
-    notifyListeners();
-  }
-}
-
-/*
-class MyApp extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
     return MultiProvider(
       providers: [
         ChangeNotifierProvider.value(
-          value: Counter(),
+          value: Facilities(ip),
+        ),
+        ChangeNotifierProvider.value(
+          value: Facility(),
+        ),
+        ChangeNotifierProvider.value(
+          value: FechaDesde(),
+        ),
+        ChangeNotifierProvider.value(
+          value: FechaHasta(),
+        ),
+        ChangeNotifierProvider.value(
+          value: Event(ip, 0, DateTime.now(), DateTime.now()),
+        ),
+        ChangeNotifierProvider.value(
+          value: Usuario(),
+        ),
+        ChangeNotifierProvider.value(
+          value: Usuarios(ip, '', ''),
+        ),
+        ChangeNotifierProvider.value(
+          value: FechaAcceso(),
+        ),
+        ChangeNotifierProvider.value(
+          value: Entra(),
+        ),
+        ChangeNotifierProvider.value(
+          value: Temperatura(),
+        ),
+        ChangeNotifierProvider.value(
+          value: Acceso(),
         ),
       ],
       child: MaterialApp(
         title: 'Flutter Demo',
-        theme: ThemeData(
-          primarySwatch: Colors.blue,
-          visualDensity: VisualDensity.adaptivePlatformDensity,
-        ),
-        home: MyHomePage("AndroidVille Provider Pattern"),
-      ),
-    );
-  }
-}*/
-
-class MyHomePage extends StatelessWidget {
-  final String title;
-  MyHomePage(this.title);
-  void _incrementCounter(BuildContext context) {
-    Provider.of<Counter>(context, listen: false).incrementCounter();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    var counter = Provider.of<Counter>(context).getCounter;
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(title),
-      ),
-      body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: <Widget>[
-            Text(
-              'You have pushed the button this many times:',
-            ),
-            Text(
-              '$counter',
-              style: Theme.of(context).textTheme.headline4,
-            ),
-          ],
-        ),
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () => _incrementCounter(context),
-        tooltip: 'Increment',
-        child: Icon(Icons.add),
-      ),
+        theme: ThemeData(primarySwatch: Colors.blue,),
+        home: FacilitiesPage(),
+        debugShowCheckedModeBanner: false,
+      )
     );
   }
 }
-
 
 void main() {
   runApp(MultiProvider(
