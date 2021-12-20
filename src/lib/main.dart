@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 import 'package:flutter/foundation.dart';
@@ -151,7 +152,6 @@ class Modelo {
 
   static int getAforo(List access_log){
     int i=0,aforo=0;
-    Map access = access_log[i];
     while (i < access_log.length) {
       Map access = access_log[i];
       if ((access["type"] as String).toUpperCase().startsWith("IN")) {
@@ -406,13 +406,13 @@ class FacilitiesPage extends StatelessWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(AppLocalizations.of(context).toString()),
+        title: Text(AppLocalizations.of(context)!.centros),
       ),
       persistentFooterButtons: <Widget>[
         IconButton(
             icon: const Icon(Icons.sync),
             iconSize: 20,
-            tooltip: 'Recargar',
+            tooltip: AppLocalizations.of(context)!.recargar,
             onPressed: () {
               _askFacilities(context, ip);
             }
@@ -420,7 +420,7 @@ class FacilitiesPage extends StatelessWidget {
         IconButton(
             icon: const Icon(Icons.settings),
             iconSize: 20,
-            tooltip: 'Configuración',
+            tooltip: AppLocalizations.of(context)!.configuracion,
             onPressed: () =>
                 Navigator.push(
                     context,
@@ -441,11 +441,7 @@ class FacilitiesPage extends StatelessWidget {
                     width: 1.0,
                   ),
                 ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: const [Text("Seleccione el centro para"
-                    " registrar u obtener su información:")
-                ])
+                child: Text(AppLocalizations.of(context)!.seleccionCentros)
             ),
             Loader(
                 facilities,
@@ -494,34 +490,34 @@ class ConfiguracionPage extends StatelessWidget {
 
     return Scaffold(
         appBar: AppBar(
-          title: Text('Configuración'),
+          title: Text(AppLocalizations.of(context)!.configuracion),
         ),
         body: TextFormField(
           decoration: InputDecoration(
               hintText: ip,
-              labelText: "Introduzca la IP de la BBDD"),
+              labelText: AppLocalizations.of(context)!.iP),
           keyboardType: TextInputType.number,
           autovalidateMode: AutovalidateMode.onUserInteraction,
           validator: (value) {
 
             if(value == null){
-              return "Formato incorrecto";
+              return AppLocalizations.of(context)!.fI;
             }
             value = value as String;
             var values = value.split('.');
             if(values.length < 4){
-              return "Formato incorrecto";
+              return AppLocalizations.of(context)!.fI;
             }
             for(String i in values) {
               if(i.isEmpty || i.toUpperCase() != i.toLowerCase()){
-                return "Formato incorrecto";
+                return AppLocalizations.of(context)!.fI;
               }
             }
             print(value);
           },
           onFieldSubmitted: (value) {
             value = value.trim();
-            if (!value.isEmpty) {
+            if (value.isNotEmpty) {
               _setIp(context, value);
             }
           },
@@ -548,7 +544,7 @@ class OpcionesPage extends StatelessWidget {
                       builder: (context) => IdentificarPage()),
                 );
               },
-              child: const Text('Registrar'),
+              child: Text(AppLocalizations.of(context)!.registrar),
             ),
             const SizedBox(width: 50),
             ElevatedButton(
@@ -560,13 +556,13 @@ class OpcionesPage extends StatelessWidget {
                       builder: (context) => EventPage()),
                 );
               },
-              child: const Text('Eventos'),
+              child: Text(AppLocalizations.of(context)!.eventos),
             )
           ];
 
           return Scaffold(
             appBar: AppBar(
-              title: const Text("Selecione una opción"),
+              title: Text(AppLocalizations.of(context)!.seleccionOpcion),
             ),
             body: Center(
               child: Flex(
@@ -595,7 +591,8 @@ class IdentificarPage extends StatelessWidget {
         List<Widget> widgets = [
           ElevatedButton(
               onPressed: () => FlutterBarcodeScanner.scanBarcode(
-                  '#ff6666', 'Cancel', true, ScanMode.QR).then(
+                  '#ff6666', AppLocalizations.of(context)!.cancelar,
+                  true, ScanMode.QR).then(
                       (value) {
                     if(value != '-1') {
                       Navigator.push(
@@ -609,7 +606,7 @@ class IdentificarPage extends StatelessWidget {
                     }
                   }
               ),
-              child: const Text('Con QR')
+              child: Text(AppLocalizations.of(context)!.qR)
           ),
           const SizedBox(width: 50),
           ElevatedButton(
@@ -618,12 +615,12 @@ class IdentificarPage extends StatelessWidget {
                   MaterialPageRoute(builder: (context) =>
                       UsuariosPage())
               ),
-              child: const Text('Manual')
+              child: Text(AppLocalizations.of(context)!.manual)
           ),
         ];
 
         return Scaffold(
-          appBar: AppBar(title: const Text('Identificar usuario')),
+          appBar: AppBar(title: Text(AppLocalizations.of(context)!.identificarUsuario)),
           body: Builder(builder: (BuildContext context) {
             return Container(
                 alignment: Alignment.center,
@@ -659,7 +656,7 @@ class UsuariosPage extends StatelessWidget {
     
     return Scaffold(
         appBar: AppBar(
-          title: const Text("Usuarios"),
+          title: Text(AppLocalizations.of(context)!.usuarios),
         ),
         body: Center(child: Column(
             children: <Widget>[
@@ -685,7 +682,7 @@ class UsuariosPage extends StatelessWidget {
                 usuarios,
                 (List users) {
                   if (users.isEmpty) {
-                    return const Text("No se encontraron coincidencias");
+                    return Text(AppLocalizations.of(context)!.sinCoinci);
                   }
 
                   return Expanded(child: ListView.builder(
@@ -759,7 +756,7 @@ class EventPage extends StatelessWidget {
             Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: <Widget>[
-                  const Text(" Inicio "),
+                  Text(AppLocalizations.of(context)!.inicio),
                   Container(
                       decoration: ShapeDecoration(
                         color: Colors.white,
@@ -774,7 +771,7 @@ class EventPage extends StatelessWidget {
                       icon: const Icon(
                           Icons.calendar_today),
                       iconSize: 20,
-                      tooltip: 'Austar la fecha de inicio del evento',
+                      tooltip: AppLocalizations.of(context)!.fechaDesde,
                       onPressed: () =>
                           _setFechaDesde(context)
                   ),
@@ -792,7 +789,7 @@ class EventPage extends StatelessWidget {
                   IconButton(
                       icon: const Icon(Icons.access_time),
                       iconSize: 20,
-                      tooltip: 'Ajustar la hora de inicio del evento',
+                      tooltip: AppLocalizations.of(context)!.horaDesde,
                       onPressed: () =>
                           _setHoraDesde(context)
                   )
@@ -801,7 +798,7 @@ class EventPage extends StatelessWidget {
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: <Widget>[
-                const Text(" Final  "),
+                Text(AppLocalizations.of(context)!.final0),
                 Container(
                     decoration: ShapeDecoration(
                       color: Colors.white,
@@ -815,7 +812,7 @@ class EventPage extends StatelessWidget {
                 IconButton(
                     icon: const Icon(Icons.calendar_today),
                     iconSize: 20,
-                    tooltip: 'Austar la fecha de fin del evento',
+                    tooltip: AppLocalizations.of(context)!.fechaHasta,
                     onPressed: () => _setFechaHasta(context)
                 ),
                 Container(
@@ -831,7 +828,7 @@ class EventPage extends StatelessWidget {
                 IconButton(
                     icon: const Icon(Icons.access_time),
                     iconSize: 20,
-                    tooltip: 'Austar la hora de fin del evento',
+                    tooltip: AppLocalizations.of(context)!.horaHasta,
                     onPressed: () => _setHoraHasta(context)
                 )
               ],
@@ -840,7 +837,7 @@ class EventPage extends StatelessWidget {
                 alignment: Alignment.center,
                 icon: const Icon(Icons.search),
                 iconSize: 20,
-                tooltip: 'Buscar',
+                tooltip: AppLocalizations.of(context)!.buscar,
                 onPressed: () =>
                     _askEvent(
                         context,
@@ -852,10 +849,10 @@ class EventPage extends StatelessWidget {
             ),
           ];
 
-          List<DataColumn> cabecerasV = const <DataColumn>[
+          List<DataColumn> cabecerasV = <DataColumn>[
             DataColumn(
               label: Text(
-                'Tipo',
+                AppLocalizations.of(context)!.tipo,
                 style: TextStyle(
                     fontStyle: FontStyle
                         .italic),
@@ -863,7 +860,7 @@ class EventPage extends StatelessWidget {
             ),
             DataColumn(
               label: Text(
-                'Fecha',
+                AppLocalizations.of(context)!.fecha,
                 style: TextStyle(
                     fontStyle: FontStyle
                         .italic),
@@ -871,7 +868,7 @@ class EventPage extends StatelessWidget {
             ),
             DataColumn(
               label: Text(
-                'Hora',
+                AppLocalizations.of(context)!.hora,
                 style: TextStyle(
                     fontStyle: FontStyle
                         .italic),
@@ -879,69 +876,38 @@ class EventPage extends StatelessWidget {
             ),
             DataColumn(
               label: Text(
-                'Usuario',
+                AppLocalizations.of(context)!.usuario,
                 style: TextStyle(
                     fontStyle: FontStyle
                         .italic),
               ),
             ),
           ],
-          cabecerasH = const <DataColumn>[
+          cabecerasH = List.from(cabecerasV);
+          cabecerasH.addAll(<DataColumn>[
             DataColumn(
               label: Text(
-                'Tipo',
-                style: TextStyle(
-                    fontStyle: FontStyle
-                        .italic),
-              ),
-            ),
-            DataColumn(
-              label: Text(
-                'Fecha',
-                style: TextStyle(
-                    fontStyle: FontStyle
-                        .italic),
-              ),
-            ),
-            DataColumn(
-              label: Text(
-                'Hora',
-                style: TextStyle(
-                    fontStyle: FontStyle
-                        .italic),
-              ),
-            ),
-            DataColumn(
-              label: Text(
-                'Usuario',
-                style: TextStyle(
-                    fontStyle: FontStyle
-                        .italic),
-              ),
-            ),
-            DataColumn(
-              label: Text(
-                'Número',
+                AppLocalizations.of(context)!.numero,
                 style: TextStyle(fontStyle: FontStyle.italic),
               ),
             ),
             DataColumn(
               label: Text(
-                'Temperatura',
+                AppLocalizations.of(context)!.temperatura,
                 style: TextStyle(fontStyle: FontStyle.italic),
               ),
             ),
             DataColumn(
               label: Text(
-                'Vacunado',
+                AppLocalizations.of(context)!.vacunado,
                 style: TextStyle(fontStyle: FontStyle.italic),
               ),
             ),
-          ];
+          ]);
 
           return Scaffold(
               appBar: AppBar(
-                title: const Text("Eventos"),
+                title: Text(AppLocalizations.of(context)!.eventos),
               ),
               body: Column(
                     children: <Widget>[
@@ -970,22 +936,26 @@ class EventPage extends StatelessWidget {
 
                             if (fechaDesde.isAfter(now) ||
                                 fechaHasta.isAfter(now)) {
-                              return const Text(
-                                  "Las fechas deben ser previas a la actual."
+                              return Text(
+                                  AppLocalizations.of(context)!.fechasPrevias
                               );
                             } else if (fechaDesde.isAfter(fechaHasta)) {
-                              return const Text(
-                                  "La fecha de inicio debe ser anterior a la final."
+                              return Text(
+                                  AppLocalizations.of(context)!.inicioAnterio
                               );
                             } else if (accesos.isEmpty) {
-                              return const Text("No se obtuvieron resultados."
+                              return Text(AppLocalizations.of(context)!.sinResultados
                               );
                             } else {
                               return Expanded(child: Column(
                                   children: <Widget>[
-                                    Text("Aforo ${_getAforo(accesos)} "
-                                        "${_getAforo(accesos) > 1 ?
-                                    "personas" : "persona"}"),
+                                    Text(AppLocalizations.of(context)!.aforo1 +
+                                        _getAforo(accesos).toString() +
+                                        (_getAforo(accesos) > 1?
+                                          AppLocalizations.of(context)!.aforo22:
+                                          AppLocalizations.of(context)!.aforo21
+                                        )
+                                    ),
                                     Expanded(child: SingleChildScrollView(
                                         child: DataTable(
                                           columns: orientation == Orientation.portrait?
@@ -1023,33 +993,9 @@ class EventPage extends StatelessWidget {
                                                       )
                                                   ),
                                                 ],
-                                                filaH = [
-                                                  DataCell(
-                                                      Text(acceso['type']
-                                                      )
-                                                  ),
-                                                  DataCell(
-                                                      Text(
-                                                          acceso['timestamp']
-                                                              .toString()
-                                                              .substring(
-                                                              0, 10)
-                                                      )
-                                                  ),
-                                                  DataCell(
-                                                      Text(
-                                                          acceso['timestamp']
-                                                              .toString()
-                                                              .substring(
-                                                              11, 16)
-                                                      )
-                                                  ),
-                                                  DataCell(
-                                                      Text(
-                                                          '${user['name']} '
-                                                              '${user['surname']}'
-                                                      )
-                                                  ),
+                                                filaH = List.from(filaV);
+
+                                                filaH.addAll([
                                                   DataCell(
                                                       Text('${user['phone']}')
                                                   ),
@@ -1059,10 +1005,11 @@ class EventPage extends StatelessWidget {
                                                   DataCell(
                                                       Text(
                                                           user['is_vaccinated']?
-                                                          'Sí': 'No'
+                                                          AppLocalizations.of(context)!.si:
+                                                          AppLocalizations.of(context)!.no
                                                       )
                                                   ),
-                                                ];
+                                                ]);
 
                                                 return DataRow(
                                                     cells: orientation == Orientation.portrait?
@@ -1118,7 +1065,7 @@ class RegistrarPage extends StatelessWidget {
     List<String> list = usuario.split(",");
 
     if(list.length != 3) {
-      return Alert("Código QR inválido");
+      return Alert(AppLocalizations.of(context)!.qRMal);
     }
     String name = list[0], surname = list[1], uuid = list[2];
     List<Widget> widgets = <Widget>[
@@ -1126,19 +1073,24 @@ class RegistrarPage extends StatelessWidget {
           children: <Widget>[
             SizedBox(
               width: 280,
-              child: Text("Introduzca los datos del acceso de ${name} ${surname} a ${facility['name']}"),
+              child: Text(
+                  AppLocalizations.of(context)!.accesoFacility1 +
+                  name + AppLocalizations.of(context)!.accesoFacility2 +
+                  surname + AppLocalizations.of(context)!.accesoFacility3 +
+                  facility['name']
+              ),
             ),
             SizedBox(
               width: 280,
               child: TextFormField(
-                decoration: const InputDecoration(
+                decoration: InputDecoration(
                     hintText: "30.0",
-                    labelText: "Introduzca la temperatura del usuario"),
+                    labelText: AppLocalizations.of(context)!.introTemperatura),
                 keyboardType: TextInputType.number,
                 autovalidateMode: AutovalidateMode.onUserInteraction,
                 validator: (value) {
                   if (value == null || double.tryParse(value) == null) {
-                    return "Formato incorrecto";
+                    return AppLocalizations.of(context)!.fI;
                   }
                 },
                 onFieldSubmitted: (value) {
@@ -1149,8 +1101,7 @@ class RegistrarPage extends StatelessWidget {
                 },
             )),
             SizedBox(height: 16),
-            const Text("Introduzca la fecha del acceso",
-            ),
+            Text(AppLocalizations.of(context)!.fecha),
             Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: <Widget>[
@@ -1167,7 +1118,7 @@ class RegistrarPage extends StatelessWidget {
                   IconButton(
                       icon: const Icon(Icons.calendar_today),
                       iconSize: 20,
-                      tooltip: 'Austar la fecha del acceso',
+                      tooltip: AppLocalizations.of(context)!.fechaAccesoConsejo,
                       onPressed: () => _setFechaAcceso(context)
                   ),
                   Container(
@@ -1183,12 +1134,12 @@ class RegistrarPage extends StatelessWidget {
                   IconButton(
                       icon: const Icon(Icons.access_time),
                       iconSize: 20,
-                      tooltip: 'Austar la hora del acceso',
+                      tooltip: AppLocalizations.of(context)!.horaAccesoConsejo,
                       onPressed: () => _setHoraAcceso(context)
                   )
                 ]
             ),
-            const Text("Indique si ha entrado o salido",
+            Text(AppLocalizations.of(context)!.entrada,
             ),
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
@@ -1197,7 +1148,10 @@ class RegistrarPage extends StatelessWidget {
                   value: entra,
                   onChanged: (bool value) => _setEntra(context, value)
               ),
-              Text(entra? "Entró" : "Salió")
+              Text(
+                  entra? AppLocalizations.of(context)!.entro:
+                    AppLocalizations.of(context)!.salio
+              )
             ],
             ),
             Center(
@@ -1205,7 +1159,7 @@ class RegistrarPage extends StatelessWidget {
                   alignment: Alignment.topRight,
                   icon: const Icon(Icons.check_circle_outline),
                   iconSize: 50,
-                  tooltip: 'Austar la fecha de inicio del evento',
+                  tooltip: AppLocalizations.of(context)!.registrar,
                   onPressed: () =>
                       _setAcceso(context, ip, facility["id"], uuid,
                           fechaAcceso, entra? "IN": "OUT", temperatura)
@@ -1226,15 +1180,14 @@ class RegistrarPage extends StatelessWidget {
                 ),
               ),
               child: acceso.isEmpty?
-                const Text("No se ha registrado nada"):
+                Text(AppLocalizations.of(context)!.nadaRegistrado):
                 Text(
-                  "\n Se ha registrado correctamente la\n"
-                      " siguiente información del usuario: \n\n"
-                      " Fecha: ${acceso["timestamp"].substring(0,
-                      10)}\n"
-                      " Hora: ${acceso["timestamp"].substring(11,
-                      16)}\n"
-                      " Tipo: ${acceso["type"]}\n",
+                  AppLocalizations.of(context)!.registroOK1 +
+                  acceso["timestamp"].substring(0,10) + "\n" +
+                  AppLocalizations.of(context)!.registroOK2 +
+                  acceso["timestamp"].substring(11,16)+ "\n" +
+                  AppLocalizations.of(context)!.registroOK3 +
+                  acceso["type"] + "\n"
                 )
             )
         )
@@ -1246,7 +1199,7 @@ class RegistrarPage extends StatelessWidget {
         Scaffold(
           resizeToAvoidBottomInset: false,
           appBar: AppBar(
-            title: Text('Registrar acceso'),
+            title: Text(AppLocalizations.of(context)!.registrarAcceso),
           ),
           body: Flex(
               direction: orientation == Orientation.portrait?
@@ -1320,12 +1273,15 @@ class MyApp extends StatelessWidget {
         ),
       ],
       child: MaterialApp(
-        localizationsDelegates: [
+        localizationsDelegates: const[
+          AppLocalizations.delegate,
           GlobalMaterialLocalizations.delegate,
+          /*GlobalMaterialLocalizations.delegate,
           GlobalWidgetsLocalizations.delegate,
-          GlobalCupertinoLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,*/
         ],
-        supportedLocales: [
+        //supportedLocales: AppLocalizations.supportedLocales,
+        supportedLocales: const[
           Locale('es', ''),
         ],
         theme: ThemeData(primarySwatch: Colors.blue),
