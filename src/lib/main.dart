@@ -1,4 +1,6 @@
 import 'dart:convert';
+import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -309,7 +311,7 @@ class Entra extends ChangeNotifier {
 }
 
 class Facility extends ChangeNotifier {
-  Map? _facility;
+  Map? _facility = {'id': 0};
 
   Map? get facility => _facility;
 
@@ -321,7 +323,7 @@ class Facility extends ChangeNotifier {
 }
 
 class Event extends ChangeNotifier {
-  Map? _event = null;
+  Map? _event;
 
   Event(String ip, int facility_id,
       DateTime desde, DateTime hasta) {
@@ -349,13 +351,17 @@ class Loader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if(response == null) {
-      return CircularProgressIndicator();
+      return Expanded(child: Flex(
+        mainAxisAlignment: MainAxisAlignment.center,
+        direction: Axis.vertical,
+        children: [CircularProgressIndicator()],
+      ));
     }
     if(response!['status'] == 200) {
       return builder(response!['data']);
     }
-    return Alert("Error al conectar con la base de datos.\n"
-        "Código de estado: ${response!['status']}");
+    return Center(child: Alert("Error al conectar con la base de datos.\n"
+        "Código de estado: ${response!['status']}"));
   }
 }
 
@@ -400,7 +406,7 @@ class FacilitiesPage extends StatelessWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text("Centros"),
+        title: Text(AppLocalizations.of(context).toString()),
       ),
       persistentFooterButtons: <Widget>[
         IconButton(
@@ -425,6 +431,7 @@ class FacilitiesPage extends StatelessWidget {
         ),
       ],
       body: Center(child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
           children: <Widget>[
             Container(
                 decoration: ShapeDecoration(
@@ -434,9 +441,11 @@ class FacilitiesPage extends StatelessWidget {
                     width: 1.0,
                   ),
                 ),
-                child: const Text("Seleccione el centro para"
-                    " registrar u obtener su información:"
-                )
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: const [Text("Seleccione el centro para"
+                    " registrar u obtener su información:")
+                ])
             ),
             Loader(
                 facilities,
@@ -446,7 +455,10 @@ class FacilitiesPage extends StatelessWidget {
                     Map facility = facilities[index];
 
                     return ListTile(
-                      title: Text(facility["name"]),
+                      title: Text(
+                        facility["name"],
+                        textAlign: TextAlign.center,
+                      ),
                       onTap: () {
                         Navigator.push(
                           context,
@@ -479,6 +491,7 @@ class ConfiguracionPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     String ip = Provider.of<Ip>(context).ip;
+
     return Scaffold(
         appBar: AppBar(
           title: Text('Configuración'),
@@ -523,37 +536,48 @@ class OpcionesPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text("Selecione una opción"),
-      ),
-      body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: <Widget>[
-            ElevatedButton(
-              // Within the SecondRoute widget
-              onPressed: () {
-                Navigator.push(
-                 context,
-                  MaterialPageRoute(builder: (context) => IdentificarPage()),
-                );
-              },
-              child: const Text('Registrar'),
-            ),
+    return OrientationBuilder(
+        builder: (context, orientation) {
+          List<Widget> widgets = [
             ElevatedButton(
               // Within the SecondRoute widget
               onPressed: () {
                 Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (context) => EventPage()),
+                  MaterialPageRoute(
+                      builder: (context) => IdentificarPage()),
+                );
+              },
+              child: const Text('Registrar'),
+            ),
+            const SizedBox(width: 50),
+            ElevatedButton(
+              // Within the SecondRoute widget
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                      builder: (context) => EventPage()),
                 );
               },
               child: const Text('Eventos'),
             )
-          ]
-        ),
-      )
+          ];
+
+          return Scaffold(
+            appBar: AppBar(
+              title: const Text("Selecione una opción"),
+            ),
+            body: Center(
+              child: Flex(
+                  direction: orientation == Orientation.portrait?
+                  Axis.vertical: Axis.horizontal,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: widgets
+                )
+              ),
+            );
+        }
     );
   }
 }
@@ -565,49 +589,54 @@ class IdentificarPage extends StatelessWidget {
       Provider.of<Usuario>(context, listen: false).usuario = uuid;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) =>
+      OrientationBuilder(
+        builder: (context, orientation) {
+        List<Widget> widgets = [
+          ElevatedButton(
+              onPressed: () => FlutterBarcodeScanner.scanBarcode(
+                  '#ff6666', 'Cancel', true, ScanMode.QR).then(
+                      (value) {
+                    if(value != '-1') {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (context) {
+                          _setUsuario(context, value);
+                          return RegistrarPage();
+                        }
+                        ),
+                      );
+                    }
+                  }
+              ),
+              child: const Text('Con QR')
+          ),
+          const SizedBox(width: 50),
+          ElevatedButton(
+              onPressed: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) =>
+                      UsuariosPage())
+              ),
+              child: const Text('Manual')
+          ),
+        ];
+
         return Scaffold(
           appBar: AppBar(title: const Text('Identificar usuario')),
           body: Builder(builder: (BuildContext context) {
             return Container(
                 alignment: Alignment.center,
                 child: Flex(
-                    direction: Axis.vertical,
+                    direction: orientation == Orientation.portrait?
+                      Axis.vertical: Axis.horizontal,
                     mainAxisAlignment: MainAxisAlignment.center,
-                    children: <Widget>[
-                      ElevatedButton(
-                          onPressed: () => FlutterBarcodeScanner.scanBarcode(
-                              '#ff6666', 'Cancel', true, ScanMode.QR).then(
-                                  (value) {
-                                if(value != '-1') {
-                                  Navigator.push(
-                                    context,
-                                    MaterialPageRoute(builder: (context) {
-                                        _setUsuario(context, value);
-                                        return RegistrarPage();
-                                      }
-                                    ),
-                                  );
-                                }
-                              }
-                          ),
-                          child: const Text('Con QR')
-                      ),
-                      ElevatedButton(
-                          onPressed: () => Navigator.push(
-                              context,
-                              MaterialPageRoute(builder: (context) =>
-                                  UsuariosPage())
-                          ),
-                          child: const Text('Manual')
-                      ),
-                    ]
+                    children: widgets
                 )
             );
-          }
-        )
-    );
-  }
+          })
+        );
+  });
 }
 
 class UsuariosPage extends StatelessWidget {
@@ -621,7 +650,7 @@ class UsuariosPage extends StatelessWidget {
 
   void _setUsuario(BuildContext context, Map usuario) =>
       Provider.of<Usuario>(context, listen: false).usuario =
-        "${usuario["name"]},${usuario["suname"]},${usuario["uuid"]}";
+        "${usuario["name"]},${usuario["surname"]},${usuario["uuid"]}";
 
   @override
   Widget build(BuildContext context) {
@@ -665,8 +694,11 @@ class UsuariosPage extends StatelessWidget {
                       Map user = users[index];
 
                       return ListTile(
-                        title: Text("${user["name"]} ${user["surname"]}\n"
-                            "nº: ${user["phone"]}"),
+                        title: Text(
+                          "${user["name"]} ${user["surname"]}\n"
+                            "nº: ${user["phone"]}",
+                          textAlign: TextAlign.center,
+                        ),
                         onTap: () {
                           Navigator.push(
                               context,
@@ -721,14 +753,55 @@ class EventPage extends StatelessWidget {
     DateTime fechaHasta = Provider.of<FechaHasta>(context).fecha;
     Map? event = Provider.of<Event>(context).event;
 
-
-    return Scaffold(
-        appBar: AppBar(
-          title: const Text("Eventos"),
-        ),
-        body: Center(
-          child: Column(
+    return OrientationBuilder(
+        builder: (context, orientation) {
+          List<Widget> widgets = [
+            Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: <Widget>[
+                  const Text(" Inicio "),
+                  Container(
+                      decoration: ShapeDecoration(
+                        color: Colors.white,
+                        shape: Border.all(
+                          color: Colors.black,
+                          width: 1.0,
+                        ),
+                      ),
+                      child: Text(fechaToString(fechaDesde))
+                  ),
+                  IconButton(
+                      icon: const Icon(
+                          Icons.calendar_today),
+                      iconSize: 20,
+                      tooltip: 'Austar la fecha de inicio del evento',
+                      onPressed: () =>
+                          _setFechaDesde(context)
+                  ),
+                  Container(
+                      decoration: ShapeDecoration(
+                        color: Colors.white,
+                        shape: Border.all(
+                          color: Colors.black,
+                          width: 1.0,
+                        ),
+                      ),
+                      child: Text(
+                          horaToString(fechaDesde))
+                  ),
+                  IconButton(
+                      icon: const Icon(Icons.access_time),
+                      iconSize: 20,
+                      tooltip: 'Ajustar la hora de inicio del evento',
+                      onPressed: () =>
+                          _setHoraDesde(context)
+                  )
+                ]
+            ),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
               children: <Widget>[
+                const Text(" Final  "),
                 Container(
                     decoration: ShapeDecoration(
                       color: Colors.white,
@@ -737,187 +810,278 @@ class EventPage extends StatelessWidget {
                         width: 1.0,
                       ),
                     ),
-                    child: Column(
-                        children: <Widget>[
-                          Row(
-                              children: <Widget>[
-                                const Text(" Inicio "),
-                                Container(
-                                    decoration: ShapeDecoration(
-                                      color: Colors.white,
-                                      shape: Border.all(
-                                        color: Colors.black,
-                                        width: 1.0,
-                                      ),
-                                    ),
-                                    child: Text(fechaToString(fechaDesde))
-                                ),
-                                IconButton(
-                                    icon: const Icon(Icons.calendar_today),
-                                    iconSize: 20,
-                                    tooltip: 'Austar la fecha de inicio del evento',
-                                    onPressed: () => _setFechaDesde(context)
-                                ),
-                                Container(
-                                  decoration: ShapeDecoration(
-                                    color: Colors.white,
-                                    shape: Border.all(
-                                      color: Colors.black,
-                                      width: 1.0,
-                                    ),
-                                  ),
-                                  child: Text(
-                                      horaToString(fechaDesde))
-                                ),
-                                IconButton(
-                                    icon: const Icon(Icons.access_time),
-                                    iconSize: 20,
-                                    tooltip: 'Ajustar la hora de inicio del evento',
-                                    onPressed: () => _setHoraDesde(context)
-                                )
-                              ]
-                          ),
-                          Row(
-                            children: <Widget>[
-                              const Text(" Final  "),
-                              Container(
-                                decoration: ShapeDecoration(
-                                  color: Colors.white,
-                                  shape: Border.all(
-                                    color: Colors.black,
-                                    width: 1.0,
-                                  ),
-                                ),
-                                child: Text(fechaToString(fechaHasta))
-                              ),
-                              IconButton(
-                                  icon: const Icon(Icons.calendar_today),
-                                  iconSize: 20,
-                                  tooltip: 'Austar la fecha de fin del evento',
-                                  onPressed: () => _setFechaHasta(context)
-                              ),
-                              Container(
-                                  decoration: ShapeDecoration(
-                                    color: Colors.white,
-                                    shape: Border.all(
-                                      color: Colors.black,
-                                      width: 1.0,
-                                    ),
-                                  ),
-                                  child: Text(horaToString(fechaHasta))
-                              ),
-                              IconButton(
-                                  icon: const Icon(Icons.access_time),
-                                  iconSize: 20,
-                                  tooltip: 'Austar la hora de fin del evento',
-                                  onPressed: () => _setHoraHasta(context)
-                              )
-                            ],
-                          ),
-                          IconButton(
-                              alignment: Alignment.topRight,
-                              icon: const Icon(Icons.search),
-                              iconSize: 20,
-                              tooltip: 'Buscar',
-                              onPressed: () =>
-                                  _askEvent(
-                                      context,
-                                      ip,
-                                      facility['id'],
-                                      fechaDesde,
-                                      fechaHasta
-                                  )
-                          ),
-                        ]
+                    child: Text(fechaToString(fechaHasta))
+                ),
+                IconButton(
+                    icon: const Icon(Icons.calendar_today),
+                    iconSize: 20,
+                    tooltip: 'Austar la fecha de fin del evento',
+                    onPressed: () => _setFechaHasta(context)
+                ),
+                Container(
+                    decoration: ShapeDecoration(
+                      color: Colors.white,
+                      shape: Border.all(
+                        color: Colors.black,
+                        width: 1.0,
+                      ),
+                    ),
+                    child: Text(horaToString(fechaHasta))
+                ),
+                IconButton(
+                    icon: const Icon(Icons.access_time),
+                    iconSize: 20,
+                    tooltip: 'Austar la hora de fin del evento',
+                    onPressed: () => _setHoraHasta(context)
+                )
+              ],
+            ),
+            IconButton(
+                alignment: Alignment.center,
+                icon: const Icon(Icons.search),
+                iconSize: 20,
+                tooltip: 'Buscar',
+                onPressed: () =>
+                    _askEvent(
+                        context,
+                        ip,
+                        facility['id'],
+                        fechaDesde,
+                        fechaHasta
                     )
-                ),
-                Loader(
-                    event,
-                        (List accesos) {
-                      DateTime now = DateTime.now();
+            ),
+          ];
 
-                      if (fechaDesde.isAfter(now) || fechaHasta.isAfter(now)) {
-                        return const Text(
-                            "Las fechas deben ser previas a la actual."
-                        );
-                      } else if (fechaDesde.isAfter(fechaHasta)) {
-                        return const Text(
-                            "La fecha de inicio debe ser anterior a la final."
-                        );
-                      } else if (accesos.isEmpty) {
-                        return const Text("No se obtuvieron resultados."
-                        );
-                      } else {
-                        return Expanded(child: Column(
-                            children: <Widget>[
-                              Text("Aforo ${_getAforo(accesos)} "
-                                  "${_getAforo(accesos)>1?
-                              "personas": "persona"}"),
-                          Expanded(child: SingleChildScrollView(
-                                  child: DataTable(
-                                    columns: const <DataColumn>[
-                                      DataColumn(
-                                        label: Text(
-                                          'Tipo',
-                                          style: TextStyle(
-                                              fontStyle: FontStyle.italic),
-                                        ),
-                                      ),
-                                      DataColumn(
-                                        label: Text(
-                                          'Fecha',
-                                          style: TextStyle(
-                                              fontStyle: FontStyle.italic),
-                                        ),
-                                      ),
-                                      DataColumn(
-                                        label: Text(
-                                          'Hora',
-                                          style: TextStyle(
-                                              fontStyle: FontStyle.italic),
-                                        ),
-                                      ),
-                                      DataColumn(
-                                        label: Text(
-                                          'Usuario',
-                                          style: TextStyle(
-                                              fontStyle: FontStyle.italic),
-                                        ),
-                                      ),
-                                    ],
-                                    rows: List<DataRow>.generate(
-                                        accesos.length,
-                                            (idx) {
-                                          Map acceso = accesos[idx] as Map;
-                                          Map user = acceso['user'] as Map;
-                                          return DataRow(
-                                              cells: <DataCell>[
-                                                DataCell(Text(acceso['type'])),
-                                                DataCell(
-                                                    Text(acceso['timestamp']
-                                                        .toString().substring(
-                                                        0, 10))),
-                                                DataCell(
-                                                    Text(acceso['timestamp']
-                                                        .toString().substring(
-                                                        11, 16))),
-                                                DataCell(Text(
-                                                    '${user['name']} '
-                                                        '${user['surname']}')),
-                                              ]
-                                          );
-                                        }
-                                    ),
-                                  )
-                              ))
-                            ]
-                        ));
-                      }
-                    }
+          List<DataColumn> cabecerasV = const <DataColumn>[
+            DataColumn(
+              label: Text(
+                'Tipo',
+                style: TextStyle(
+                    fontStyle: FontStyle
+                        .italic),
+              ),
+            ),
+            DataColumn(
+              label: Text(
+                'Fecha',
+                style: TextStyle(
+                    fontStyle: FontStyle
+                        .italic),
+              ),
+            ),
+            DataColumn(
+              label: Text(
+                'Hora',
+                style: TextStyle(
+                    fontStyle: FontStyle
+                        .italic),
+              ),
+            ),
+            DataColumn(
+              label: Text(
+                'Usuario',
+                style: TextStyle(
+                    fontStyle: FontStyle
+                        .italic),
+              ),
+            ),
+          ],
+          cabecerasH = const <DataColumn>[
+            DataColumn(
+              label: Text(
+                'Tipo',
+                style: TextStyle(
+                    fontStyle: FontStyle
+                        .italic),
+              ),
+            ),
+            DataColumn(
+              label: Text(
+                'Fecha',
+                style: TextStyle(
+                    fontStyle: FontStyle
+                        .italic),
+              ),
+            ),
+            DataColumn(
+              label: Text(
+                'Hora',
+                style: TextStyle(
+                    fontStyle: FontStyle
+                        .italic),
+              ),
+            ),
+            DataColumn(
+              label: Text(
+                'Usuario',
+                style: TextStyle(
+                    fontStyle: FontStyle
+                        .italic),
+              ),
+            ),
+            DataColumn(
+              label: Text(
+                'Número',
+                style: TextStyle(fontStyle: FontStyle.italic),
+              ),
+            ),
+            DataColumn(
+              label: Text(
+                'Temperatura',
+                style: TextStyle(fontStyle: FontStyle.italic),
+              ),
+            ),
+            DataColumn(
+              label: Text(
+                'Vacunado',
+                style: TextStyle(fontStyle: FontStyle.italic),
+              ),
+            ),
+          ];
+
+          return Scaffold(
+              appBar: AppBar(
+                title: const Text("Eventos"),
+              ),
+              body: Column(
+                    children: <Widget>[
+                      Container(
+                          decoration: ShapeDecoration(
+                            color: Colors.white,
+                            shape: Border.all(
+                              color: Colors.black,
+                              width: 1.0,
+                            ),
+                          ),
+                          child: orientation == Orientation.portrait?
+                              Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: widgets
+                              ):
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: widgets
+                              )
+                      ),
+                      Loader(
+                          event,
+                              (List accesos) {
+                            DateTime now = DateTime.now();
+
+                            if (fechaDesde.isAfter(now) ||
+                                fechaHasta.isAfter(now)) {
+                              return const Text(
+                                  "Las fechas deben ser previas a la actual."
+                              );
+                            } else if (fechaDesde.isAfter(fechaHasta)) {
+                              return const Text(
+                                  "La fecha de inicio debe ser anterior a la final."
+                              );
+                            } else if (accesos.isEmpty) {
+                              return const Text("No se obtuvieron resultados."
+                              );
+                            } else {
+                              return Expanded(child: Column(
+                                  children: <Widget>[
+                                    Text("Aforo ${_getAforo(accesos)} "
+                                        "${_getAforo(accesos) > 1 ?
+                                    "personas" : "persona"}"),
+                                    Expanded(child: SingleChildScrollView(
+                                        child: DataTable(
+                                          columns: orientation == Orientation.portrait?
+                                              cabecerasV: cabecerasH,
+                                          rows: List<DataRow>.generate(
+                                              accesos.length,
+                                                  (idx) {
+                                                Map acceso = accesos[idx] as Map;
+                                                Map user = acceso['user'] as Map;
+                                                List<DataCell> filaV = [
+                                                  DataCell(
+                                                      Text(acceso['type']
+                                                      )
+                                                  ),
+                                                  DataCell(
+                                                      Text(
+                                                          acceso['timestamp']
+                                                              .toString()
+                                                              .substring(
+                                                              0, 10)
+                                                      )
+                                                  ),
+                                                  DataCell(
+                                                      Text(
+                                                          acceso['timestamp']
+                                                              .toString()
+                                                              .substring(
+                                                              11, 16)
+                                                      )
+                                                  ),
+                                                  DataCell(
+                                                      Text(
+                                                          '${user['name']} '
+                                                              '${user['surname']}'
+                                                      )
+                                                  ),
+                                                ],
+                                                filaH = [
+                                                  DataCell(
+                                                      Text(acceso['type']
+                                                      )
+                                                  ),
+                                                  DataCell(
+                                                      Text(
+                                                          acceso['timestamp']
+                                                              .toString()
+                                                              .substring(
+                                                              0, 10)
+                                                      )
+                                                  ),
+                                                  DataCell(
+                                                      Text(
+                                                          acceso['timestamp']
+                                                              .toString()
+                                                              .substring(
+                                                              11, 16)
+                                                      )
+                                                  ),
+                                                  DataCell(
+                                                      Text(
+                                                          '${user['name']} '
+                                                              '${user['surname']}'
+                                                      )
+                                                  ),
+                                                  DataCell(
+                                                      Text('${user['phone']}')
+                                                  ),
+                                                  DataCell(
+                                                      Text('${acceso['temperature']}')
+                                                  ),
+                                                  DataCell(
+                                                      Text(
+                                                          user['is_vaccinated']?
+                                                          'Sí': 'No'
+                                                      )
+                                                  ),
+                                                ];
+
+                                                return DataRow(
+                                                    cells: orientation == Orientation.portrait?
+                                                      filaV: filaH
+                                                );
+                                              }
+                                          ),
+                                        )
+                                    ))
+                                  ]
+                              ));
+                            }
+                          }
+                      ),
+                    ]
                 ),
-              ]
-          ),
-        ));
+              );
+        }
+        );
   }
 }
 
@@ -952,41 +1116,43 @@ class RegistrarPage extends StatelessWidget {
     Map? acceso = Provider.of<Acceso>(context).acceso;
     String usuario = Provider.of<Usuario>(context).usuario!;
     List<String> list = usuario.split(",");
+
     if(list.length != 3) {
-      throw Exception("Código QR inválido");
+      return Alert("Código QR inválido");
     }
     String name = list[0], surname = list[1], uuid = list[2];
-    
-    return Scaffold(
-      resizeToAvoidBottomInset: false,
-      appBar: AppBar(
-        title: Text('Registrar acceso de ${name} ${surname}'),
-      ),
-      body: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+    List<Widget> widgets = <Widget>[
+      Column(
           children: <Widget>[
-            Text("Introduzca los datos del acceso a ${facility['name']}"),
-            TextFormField(
-              decoration: const InputDecoration(
-                  hintText: "30.0",
-                  labelText: "Introduzca la temperatura del usuario"),
-              keyboardType: TextInputType.number,
-              autovalidateMode: AutovalidateMode.onUserInteraction,
-              validator: (value) {
-                if (value == null || double.tryParse(value) == null) {
-                  return "Formato incorrecto";
-                }
-              },
-              onFieldSubmitted: (value) {
-                value = value.trim();
-                if (!value.isEmpty) {
-                  _setTemperatura(context, double.parse(value));
-                }
-              },
+            SizedBox(
+              width: 280,
+              child: Text("Introduzca los datos del acceso de ${name} ${surname} a ${facility['name']}"),
             ),
+            SizedBox(
+              width: 280,
+              child: TextFormField(
+                decoration: const InputDecoration(
+                    hintText: "30.0",
+                    labelText: "Introduzca la temperatura del usuario"),
+                keyboardType: TextInputType.number,
+                autovalidateMode: AutovalidateMode.onUserInteraction,
+                validator: (value) {
+                  if (value == null || double.tryParse(value) == null) {
+                    return "Formato incorrecto";
+                  }
+                },
+                onFieldSubmitted: (value) {
+                  value = value.trim();
+                  if (!value.isEmpty) {
+                    _setTemperatura(context, double.parse(value));
+                  }
+                },
+            )),
+            SizedBox(height: 16),
             const Text("Introduzca la fecha del acceso",
             ),
             Row(
+                mainAxisAlignment: MainAxisAlignment.center,
                 children: <Widget>[
                   Container(
                       decoration: ShapeDecoration(
@@ -1024,7 +1190,9 @@ class RegistrarPage extends StatelessWidget {
             ),
             const Text("Indique si ha entrado o salido",
             ),
-            Row(children: <Widget>[
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: <Widget>[
               Switch(
                   value: entra,
                   onChanged: (bool value) => _setEntra(context, value)
@@ -1043,41 +1211,51 @@ class RegistrarPage extends StatelessWidget {
                           fechaAcceso, entra? "IN": "OUT", temperatura)
               ),
             ),
-            Center(child: Loader(
-                acceso,
-                (Map acceso) {
-                  if (acceso.isEmpty) {
-                    return const Text("No se ha registrado nada");
-                  } else {
-                    return Container(
-                        decoration: ShapeDecoration(
-                          color: Colors.white,
-                          shape: Border.all(
-                            color: Colors.black,
-                            width: 1.0,
-                          ),
-                        ),
-                        child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                "\n Se ha registrado correctamente la\n"
-                                    " siguiente información del usuario: \n\n"
-                                    " Fecha: ${acceso["timestamp"].substring(0,
-                                    10)}\n"
-                                    " Hora: ${acceso["timestamp"].substring(11,
-                                    16)}\n"
-                                    " Tipo: ${acceso["type"]}\n",
-                              )
-                            ]
-                        )
-                    );
-                  }
-                }
-            ),
-            )
           ]
       ),
+      const SizedBox(width: 50),
+      Center(
+        child: Loader(
+          acceso,
+            (Map acceso) => Container(
+              decoration: ShapeDecoration(
+                color: Colors.white,
+                shape: Border.all(
+                  color: Colors.black,
+                  width: 1.0,
+                ),
+              ),
+              child: acceso.isEmpty?
+                const Text("No se ha registrado nada"):
+                Text(
+                  "\n Se ha registrado correctamente la\n"
+                      " siguiente información del usuario: \n\n"
+                      " Fecha: ${acceso["timestamp"].substring(0,
+                      10)}\n"
+                      " Hora: ${acceso["timestamp"].substring(11,
+                      16)}\n"
+                      " Tipo: ${acceso["type"]}\n",
+                )
+            )
+        )
+      )
+    ];
+
+    return OrientationBuilder(
+      builder: (context, orientation) =>
+        Scaffold(
+          resizeToAvoidBottomInset: false,
+          appBar: AppBar(
+            title: Text('Registrar acceso'),
+          ),
+          body: Flex(
+              direction: orientation == Orientation.portrait?
+              Axis.vertical: Axis.horizontal,
+              mainAxisAlignment: MainAxisAlignment.start,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: widgets
+          )
+      )
     );
   }
 }
@@ -1111,6 +1289,9 @@ class MyApp extends StatelessWidget {
           value: Facilities(ip),
         ),
         ChangeNotifierProvider.value(
+          value: Facility(),
+        ),
+        ChangeNotifierProvider.value(
           value: FechaDesde(fechaDesde),
         ),
         ChangeNotifierProvider.value(
@@ -1139,8 +1320,16 @@ class MyApp extends StatelessWidget {
         ),
       ],
       child: MaterialApp(
-        title: 'Flutter Demo',
-        theme: ThemeData(primarySwatch: Colors.blue,),
+        localizationsDelegates: [
+          GlobalMaterialLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+        ],
+        supportedLocales: [
+          Locale('es', ''),
+        ],
+        theme: ThemeData(primarySwatch: Colors.blue),
+        title: "Registro de acceso",
         home: FacilitiesPage(),
         debugShowCheckedModeBanner: false,
       )
@@ -1151,9 +1340,6 @@ class MyApp extends StatelessWidget {
 void main() {
   runApp(MultiProvider(
       providers: [
-        ChangeNotifierProvider.value(
-          value: Facility(),
-        ),
         ChangeNotifierProvider.value(
           value: Ip(),
         ),
