@@ -151,19 +151,18 @@ class Modelo {
   }
 
   static int getAforo(List access_log){
-    int i=0,aforo=0;
-    while (i < access_log.length) {
-      Map access = access_log[i];
-      if ((access["type"] as String).toUpperCase().startsWith("IN")) {
+    int aforo = 0;
+    List<String> vistos = [];
+
+    for(Map access in access_log) {
+      Map user = access['user'];
+
+      if(!vistos.any((visto) => visto == user['uuid'])) {
         aforo++;
-      } else {
-        aforo--;
+        vistos.add(user['uuid']);
       }
-      i++;
     }
-    if(aforo<0){
-      aforo=0;
-    }
+
     return aforo;
   }
 }
@@ -217,7 +216,8 @@ abstract class Fecha extends ChangeNotifier {
         lastDate: DateTime(2076)
     );
     if(nuevaFecha != null) {
-      _fecha = nuevaFecha;
+      _fecha = DateTime(nuevaFecha.year, nuevaFecha.month,
+          nuevaFecha.day, _fecha.hour, _fecha.minute);
       notifyListeners();
     }
   }
@@ -527,113 +527,156 @@ class ConfiguracionPage extends StatelessWidget {
 }
 
 class OpcionesPage extends StatelessWidget {
-  
-  const OpcionesPage({Key? key}): super(key: key);
+
+  void _askEvent(BuildContext context, String ip,
+      int facility_id, DateTime desde, DateTime hasta) =>
+      Provider.of<Event>(context, listen: false)
+          .askEvent(ip, facility_id, desde, hasta);
+
+  const OpcionesPage({Key? key}) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
-    return OrientationBuilder(
-        builder: (context, orientation) {
-          List<Widget> widgets = [
-            ElevatedButton(
-              // Within the SecondRoute widget
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                      builder: (context) => IdentificarPage()),
-                );
-              },
-              child: Text(AppLocalizations.of(context)!.registrar),
-            ),
-            const SizedBox(width: 50),
-            ElevatedButton(
-              // Within the SecondRoute widget
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                      builder: (context) => EventPage()),
-                );
-              },
-              child: Text(AppLocalizations.of(context)!.eventos),
-            )
-          ];
+    String ip = Provider
+        .of<Ip>(context)
+        .ip;
+    Map facility = Provider
+        .of<Facility>(context)
+        .facility!;
+    DateTime fechaDesde = Provider
+        .of<FechaDesde>(context)
+        .fecha;
+    DateTime fechaHasta = Provider
+        .of<FechaHasta>(context)
+        .fecha;
 
-          return Scaffold(
+    return OrientationBuilder(
+        builder: (context, orientation) =>
+        Scaffold(
             appBar: AppBar(
               title: Text(AppLocalizations.of(context)!.seleccionOpcion),
             ),
             body: Center(
-              child: Flex(
-                  direction: orientation == Orientation.portrait?
-                  Axis.vertical: Axis.horizontal,
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: widgets
+                child: Flex(
+                    direction: orientation == Orientation.portrait ?
+                    Axis.vertical : Axis.horizontal,
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      SizedBox(
+                          width: 160,
+                          height: 80,
+                          child: ElevatedButton(
+                            // Within the SecondRoute widget
+                            onPressed: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                    builder: (context) => IdentificarPage()),
+                              );
+                            },
+                            child: Text(
+                                AppLocalizations.of(context)!.registrar),
+                          )),
+                      const SizedBox(width: 50, height: 50),
+                      SizedBox(
+                          width: 160,
+                          height: 80,
+                          child: ElevatedButton(
+                            // Within the SecondRoute widget
+                            onPressed: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                    builder: (context) {
+                                      _askEvent(context, ip, facility['id'],
+                                          fechaDesde, fechaHasta);
+                                      return EventPage();
+                                    }
+                                ),
+                              );
+                            },
+                            child: Text(AppLocalizations.of(context)!.eventos),
+                          ))
+                    ]
                 )
-              ),
-            );
-        }
+            ),
+          )
     );
   }
 }
 
 class IdentificarPage extends StatelessWidget {
-  IdentificarPage({Key? key}): super(key: key);
+  IdentificarPage({Key? key}) : super(key: key);
 
   void _setUsuario(BuildContext context, String uuid) =>
-      Provider.of<Usuario>(context, listen: false).usuario = uuid;
+      Provider
+          .of<Usuario>(context, listen: false)
+          .usuario = uuid;
 
   @override
   Widget build(BuildContext context) =>
       OrientationBuilder(
-        builder: (context, orientation) {
-        List<Widget> widgets = [
-          ElevatedButton(
-              onPressed: () => FlutterBarcodeScanner.scanBarcode(
-                  '#ff6666', AppLocalizations.of(context)!.cancelar,
-                  true, ScanMode.QR).then(
-                      (value) {
-                    if(value != '-1') {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(builder: (context) {
-                          _setUsuario(context, value);
-                          return RegistrarPage();
-                        }
-                        ),
-                      );
-                    }
-                  }
-              ),
-              child: Text(AppLocalizations.of(context)!.qR)
-          ),
-          const SizedBox(width: 50),
-          ElevatedButton(
-              onPressed: () => Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (context) =>
-                      UsuariosPage())
-              ),
-              child: Text(AppLocalizations.of(context)!.manual)
-          ),
-        ];
-
-        return Scaffold(
-          appBar: AppBar(title: Text(AppLocalizations.of(context)!.identificarUsuario)),
-          body: Builder(builder: (BuildContext context) {
-            return Container(
-                alignment: Alignment.center,
-                child: Flex(
-                    direction: orientation == Orientation.portrait?
-                      Axis.vertical: Axis.horizontal,
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: widgets
+          builder: (context, orientation) =>
+            Scaffold(
+                appBar: AppBar(title: Text(
+                    AppLocalizations.of(context)!.identificarUsuario)),
+                body: Builder(builder: (BuildContext context) =>
+                    Container(
+                      alignment: Alignment.center,
+                      child: Flex(
+                          direction: orientation == Orientation.portrait ?
+                          Axis.vertical : Axis.horizontal,
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            SizedBox(
+                                width: 160,
+                                height: 80,
+                                child: ElevatedButton(
+                                    onPressed: () =>
+                                        FlutterBarcodeScanner.scanBarcode(
+                                            '#ff6666',
+                                            AppLocalizations.of(context)!
+                                                .cancelar,
+                                            true, ScanMode.QR).then(
+                                                (value) {
+                                              if (value != '-1') {
+                                                Navigator.push(
+                                                  context,
+                                                  MaterialPageRoute(
+                                                      builder: (context) {
+                                                        _setUsuario(
+                                                            context, value);
+                                                        return RegistrarPage();
+                                                      }
+                                                  ),
+                                                );
+                                              }
+                                            }
+                                        ),
+                                    child: Text(AppLocalizations.of(context)!
+                                        .qR)
+                                )),
+                            const SizedBox(width: 50, height: 50),
+                            SizedBox(
+                                width: 160,
+                                height: 80,
+                                child: ElevatedButton(
+                                    onPressed: () =>
+                                        Navigator.push(
+                                            context,
+                                            MaterialPageRoute(
+                                                builder: (context) =>
+                                                    UsuariosPage())
+                                        ),
+                                    child: Text(AppLocalizations.of(context)!
+                                        .manual)
+                                )),
+                          ]
+                      )
+                  )
                 )
-            );
-          })
-        );
-  });
+            )
+          );
 }
 
 class UsuariosPage extends StatelessWidget {
@@ -752,159 +795,6 @@ class EventPage extends StatelessWidget {
 
     return OrientationBuilder(
         builder: (context, orientation) {
-          List<Widget> widgets = [
-            Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: <Widget>[
-                  Text(AppLocalizations.of(context)!.inicio),
-                  Container(
-                      decoration: ShapeDecoration(
-                        color: Colors.white,
-                        shape: Border.all(
-                          color: Colors.black,
-                          width: 1.0,
-                        ),
-                      ),
-                      child: Text(fechaToString(fechaDesde))
-                  ),
-                  IconButton(
-                      icon: const Icon(
-                          Icons.calendar_today),
-                      iconSize: 20,
-                      tooltip: AppLocalizations.of(context)!.fechaDesde,
-                      onPressed: () =>
-                          _setFechaDesde(context)
-                  ),
-                  Container(
-                      decoration: ShapeDecoration(
-                        color: Colors.white,
-                        shape: Border.all(
-                          color: Colors.black,
-                          width: 1.0,
-                        ),
-                      ),
-                      child: Text(
-                          horaToString(fechaDesde))
-                  ),
-                  IconButton(
-                      icon: const Icon(Icons.access_time),
-                      iconSize: 20,
-                      tooltip: AppLocalizations.of(context)!.horaDesde,
-                      onPressed: () =>
-                          _setHoraDesde(context)
-                  )
-                ]
-            ),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: <Widget>[
-                Text(AppLocalizations.of(context)!.final0),
-                Container(
-                    decoration: ShapeDecoration(
-                      color: Colors.white,
-                      shape: Border.all(
-                        color: Colors.black,
-                        width: 1.0,
-                      ),
-                    ),
-                    child: Text(fechaToString(fechaHasta))
-                ),
-                IconButton(
-                    icon: const Icon(Icons.calendar_today),
-                    iconSize: 20,
-                    tooltip: AppLocalizations.of(context)!.fechaHasta,
-                    onPressed: () => _setFechaHasta(context)
-                ),
-                Container(
-                    decoration: ShapeDecoration(
-                      color: Colors.white,
-                      shape: Border.all(
-                        color: Colors.black,
-                        width: 1.0,
-                      ),
-                    ),
-                    child: Text(horaToString(fechaHasta))
-                ),
-                IconButton(
-                    icon: const Icon(Icons.access_time),
-                    iconSize: 20,
-                    tooltip: AppLocalizations.of(context)!.horaHasta,
-                    onPressed: () => _setHoraHasta(context)
-                )
-              ],
-            ),
-            IconButton(
-                alignment: Alignment.center,
-                icon: const Icon(Icons.search),
-                iconSize: 20,
-                tooltip: AppLocalizations.of(context)!.buscar,
-                onPressed: () =>
-                    _askEvent(
-                        context,
-                        ip,
-                        facility['id'],
-                        fechaDesde,
-                        fechaHasta
-                    )
-            ),
-          ];
-
-          List<DataColumn> cabecerasV = <DataColumn>[
-            DataColumn(
-              label: Text(
-                AppLocalizations.of(context)!.tipo,
-                style: TextStyle(
-                    fontStyle: FontStyle
-                        .italic),
-              ),
-            ),
-            DataColumn(
-              label: Text(
-                AppLocalizations.of(context)!.fecha,
-                style: TextStyle(
-                    fontStyle: FontStyle
-                        .italic),
-              ),
-            ),
-            DataColumn(
-              label: Text(
-                AppLocalizations.of(context)!.hora,
-                style: TextStyle(
-                    fontStyle: FontStyle
-                        .italic),
-              ),
-            ),
-            DataColumn(
-              label: Text(
-                AppLocalizations.of(context)!.usuario,
-                style: TextStyle(
-                    fontStyle: FontStyle
-                        .italic),
-              ),
-            ),
-          ],
-          cabecerasH = List.from(cabecerasV);
-          cabecerasH.addAll(<DataColumn>[
-            DataColumn(
-              label: Text(
-                AppLocalizations.of(context)!.numero,
-                style: TextStyle(fontStyle: FontStyle.italic),
-              ),
-            ),
-            DataColumn(
-              label: Text(
-                AppLocalizations.of(context)!.temperatura,
-                style: TextStyle(fontStyle: FontStyle.italic),
-              ),
-            ),
-            DataColumn(
-              label: Text(
-                AppLocalizations.of(context)!.vacunado,
-                style: TextStyle(fontStyle: FontStyle.italic),
-              ),
-            ),
-          ]);
-
           return Scaffold(
               appBar: AppBar(
                 title: Text(AppLocalizations.of(context)!.eventos),
@@ -919,15 +809,107 @@ class EventPage extends StatelessWidget {
                               width: 1.0,
                             ),
                           ),
-                          child: orientation == Orientation.portrait?
-                              Column(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: widgets
-                              ):
+                          child: Flex(
+                            direction: orientation == Orientation.portrait?
+                              Axis.vertical: Axis.horizontal,
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: <Widget>[
+                                    Text(AppLocalizations.of(context)!.inicio),
+                                    Container(
+                                        decoration: ShapeDecoration(
+                                          color: Colors.white,
+                                          shape: Border.all(
+                                            color: Colors.black,
+                                            width: 1.0,
+                                          ),
+                                        ),
+                                        child: Text(fechaToString(fechaDesde))
+                                    ),
+                                    IconButton(
+                                        icon: const Icon(
+                                            Icons.calendar_today),
+                                        iconSize: 20,
+                                        tooltip: AppLocalizations.of(context)!.fechaDesde,
+                                        onPressed: () =>
+                                            _setFechaDesde(context)
+                                    ),
+                                    Container(
+                                        decoration: ShapeDecoration(
+                                          color: Colors.white,
+                                          shape: Border.all(
+                                            color: Colors.black,
+                                            width: 1.0,
+                                          ),
+                                        ),
+                                        child: Text(
+                                            horaToString(fechaDesde))
+                                    ),
+                                    IconButton(
+                                        icon: const Icon(Icons.access_time),
+                                        iconSize: 20,
+                                        tooltip: AppLocalizations.of(context)!.horaDesde,
+                                        onPressed: () =>
+                                            _setHoraDesde(context)
+                                    )
+                                  ]
+                              ),
                               Row(
                                 mainAxisAlignment: MainAxisAlignment.center,
-                                children: widgets
-                              )
+                                children: <Widget>[
+                                  Text(AppLocalizations.of(context)!.final0),
+                                  Container(
+                                      decoration: ShapeDecoration(
+                                        color: Colors.white,
+                                        shape: Border.all(
+                                          color: Colors.black,
+                                          width: 1.0,
+                                        ),
+                                      ),
+                                      child: Text(fechaToString(fechaHasta))
+                                  ),
+                                  IconButton(
+                                      icon: const Icon(Icons.calendar_today),
+                                      iconSize: 20,
+                                      tooltip: AppLocalizations.of(context)!.fechaHasta,
+                                      onPressed: () => _setFechaHasta(context)
+                                  ),
+                                  Container(
+                                      decoration: ShapeDecoration(
+                                        color: Colors.white,
+                                        shape: Border.all(
+                                          color: Colors.black,
+                                          width: 1.0,
+                                        ),
+                                      ),
+                                      child: Text(horaToString(fechaHasta))
+                                  ),
+                                  IconButton(
+                                      icon: const Icon(Icons.access_time),
+                                      iconSize: 20,
+                                      tooltip: AppLocalizations.of(context)!.horaHasta,
+                                      onPressed: () => _setHoraHasta(context)
+                                  )
+                                ],
+                              ),
+                              IconButton(
+                                  alignment: Alignment.center,
+                                  icon: const Icon(Icons.search),
+                                  iconSize: 20,
+                                  tooltip: AppLocalizations.of(context)!.buscar,
+                                  onPressed: () =>
+                                      _askEvent(
+                                          context,
+                                          ip,
+                                          facility['id'],
+                                          fechaDesde,
+                                          fechaHasta
+                                      )
+                              ),
+                            ],
+                          ),
                       ),
                       Loader(
                           event,
@@ -958,62 +940,106 @@ class EventPage extends StatelessWidget {
                                     ),
                                     Expanded(child: SingleChildScrollView(
                                         child: DataTable(
-                                          columns: orientation == Orientation.portrait?
-                                              cabecerasV: cabecerasH,
+                                          columns: <DataColumn>[
+                                            DataColumn(
+                                              label: Text(
+                                                AppLocalizations.of(context)!.tipo,
+                                                style: const TextStyle(
+                                                    fontStyle: FontStyle
+                                                        .italic),
+                                              ),
+                                            ),
+                                            DataColumn(
+                                              label: Text(
+                                                AppLocalizations.of(context)!.usuario,
+                                                style: const TextStyle(
+                                                    fontStyle: FontStyle
+                                                        .italic),
+                                              ),
+                                            ),
+                                            DataColumn(
+                                              label: Text(
+                                                AppLocalizations.of(context)!.fecha,
+                                                style: const TextStyle(
+                                                    fontStyle: FontStyle
+                                                        .italic),
+                                              ),
+                                            ),
+                                            DataColumn(
+                                              label: Text(
+                                                AppLocalizations.of(context)!.hora,
+                                                style: const TextStyle(
+                                                    fontStyle: FontStyle
+                                                        .italic),
+                                              ),
+                                            ),
+                                            DataColumn(
+                                              label: Text(
+                                                AppLocalizations.of(context)!.numero,
+                                                style: const TextStyle(fontStyle: FontStyle.italic),
+                                              ),
+                                            ),
+                                            DataColumn(
+                                              label: Text(
+                                                AppLocalizations.of(context)!.temperatura,
+                                                style: const TextStyle(fontStyle: FontStyle.italic),
+                                              ),
+                                            ),
+                                            DataColumn(
+                                              label: Text(
+                                                AppLocalizations.of(context)!.vacunado,
+                                                style: const TextStyle(fontStyle: FontStyle.italic),
+                                              ),
+                                            ),
+                                          ],
                                           rows: List<DataRow>.generate(
                                               accesos.length,
                                                   (idx) {
                                                 Map acceso = accesos[idx] as Map;
                                                 Map user = acceso['user'] as Map;
-                                                List<DataCell> filaV = [
-                                                  DataCell(
-                                                      Text(acceso['type']
-                                                      )
-                                                  ),
-                                                  DataCell(
-                                                      Text(
-                                                          acceso['timestamp']
-                                                              .toString()
-                                                              .substring(
-                                                              0, 10)
-                                                      )
-                                                  ),
-                                                  DataCell(
-                                                      Text(
-                                                          acceso['timestamp']
-                                                              .toString()
-                                                              .substring(
-                                                              11, 16)
-                                                      )
-                                                  ),
-                                                  DataCell(
-                                                      Text(
-                                                          '${user['name']} '
-                                                              '${user['surname']}'
-                                                      )
-                                                  ),
-                                                ],
-                                                filaH = List.from(filaV);
-
-                                                filaH.addAll([
-                                                  DataCell(
-                                                      Text('${user['phone']}')
-                                                  ),
-                                                  DataCell(
-                                                      Text('${acceso['temperature']}')
-                                                  ),
-                                                  DataCell(
-                                                      Text(
-                                                          user['is_vaccinated']?
-                                                          AppLocalizations.of(context)!.si:
-                                                          AppLocalizations.of(context)!.no
-                                                      )
-                                                  ),
-                                                ]);
 
                                                 return DataRow(
-                                                    cells: orientation == Orientation.portrait?
-                                                      filaV: filaH
+                                                    cells: [
+                                                      DataCell(
+                                                          Text(acceso['type']
+                                                          )
+                                                      ),
+                                                      DataCell(
+                                                          Text(
+                                                              '${user['name']} '
+                                                                  '${user['surname']}'
+                                                          )
+                                                      ),
+                                                      DataCell(
+                                                          Text(
+                                                              acceso['timestamp']
+                                                                  .toString()
+                                                                  .substring(
+                                                                  0, 10)
+                                                          )
+                                                      ),
+                                                      DataCell(
+                                                          Text(
+                                                              acceso['timestamp']
+                                                                  .toString()
+                                                                  .substring(
+                                                                  11, 16)
+                                                          )
+                                                      ),
+                                                      DataCell(
+                                                          Text('${user['phone']}')
+                                                      ),
+                                                      DataCell(
+                                                          Text('${acceso['temperature']}')
+                                                      ),
+                                                      DataCell(
+                                                          Text(
+                                                              user['is_vaccinated']?
+                                                              AppLocalizations.of(context)!.si:
+                                                              AppLocalizations.of(context)!.no
+                                                          )
+                                                      ),
+                                                    ]
                                                 );
                                               }
                                           ),
@@ -1101,7 +1127,7 @@ class RegistrarPage extends StatelessWidget {
                 },
             )),
             SizedBox(height: 16),
-            Text(AppLocalizations.of(context)!.fecha),
+            Text(AppLocalizations.of(context)!.fechaAcceso),
             Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: <Widget>[
@@ -1154,20 +1180,18 @@ class RegistrarPage extends StatelessWidget {
               )
             ],
             ),
-            Center(
-              child: IconButton(
-                  alignment: Alignment.topRight,
-                  icon: const Icon(Icons.check_circle_outline),
-                  iconSize: 50,
-                  tooltip: AppLocalizations.of(context)!.registrar,
-                  onPressed: () =>
-                      _setAcceso(context, ip, facility["id"], uuid,
-                          fechaAcceso, entra? "IN": "OUT", temperatura)
-              ),
-            ),
           ]
       ),
-      const SizedBox(width: 50),
+      Center(child: IconButton(
+          alignment: Alignment.topRight,
+          icon: const Icon(Icons.check_circle_outline),
+          iconSize: 50,
+          tooltip: AppLocalizations.of(context)!.registrar,
+          onPressed: () =>
+              _setAcceso(context, ip, facility["id"], uuid,
+                  fechaAcceso, entra? "IN": "OUT", temperatura)
+        )
+      ),
       Center(
         child: Loader(
           acceso,
@@ -1283,6 +1307,7 @@ class MyApp extends StatelessWidget {
         //supportedLocales: AppLocalizations.supportedLocales,
         supportedLocales: const[
           Locale('es', ''),
+          Locale('en', ''),
         ],
         theme: ThemeData(primarySwatch: Colors.blue),
         title: "Registro de acceso",

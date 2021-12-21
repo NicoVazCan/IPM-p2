@@ -51,7 +51,7 @@
     "salio":"Exited",
     "registrar":"Register",
     "nadaRegistrado":"Nothing has been registered",
-    "registroOK1":"\n The next user's information\nhas successfully registered:\n\n Date: ",
+    "registroOK1":"\n The next user's information\n has successfully registered:\n\n Date: ",
     "registroOK2":" Hour: ",
     "registroOK3":" Type: ",
     "registrarAcceso":"Register access",
